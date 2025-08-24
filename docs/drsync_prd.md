@@ -1,0 +1,27 @@
+## Product Requirements Document (PRD)
+
+### Executive Summary
+
+DrSync is a comprehensive healthcare appointment management solution that bridges the communication gap between medical practitioners and patients through intelligent WhatsApp automation. The platform serves as a SaaS solution for individual doctors and multi-physician clinics, enabling seamless appointment scheduling, management, and patient communication through familiar messaging interfaces while providing robust backend management tools for healthcare staff.
+
+### Product Overview
+
+DrSync operates as a three-tier system: (1) Patient-facing WhatsApp chatbot interface with multilingual support (English/Urdu) providing menu-driven interactions for appointment booking, rescheduling, cancellation, and clinic information; (2) Healthcare provider web/mobile dashboard (PWA) for staff and doctors to manage patient registrations, appointment scheduling, and generate comprehensive reports; (3) Centralized server application managing multi-client operations, automated appointment confirmations, Google Sheets integration for data persistence, and subscription management.
+
+### Core Functionality
+
+The system initiates patient interactions through WhatsApp with intelligent language detection and menu navigation, guiding users through doctor/clinic selection, appointment scheduling with real-time availability checking, and automated confirmation workflows. Healthcare providers access a responsive PWA dashboard enabling patient database management, appointment CRUD operations, calendar integration, and detailed analytics reporting. The backend automation engine continuously monitors client Google Sheets, sends proactive appointment reminders and confirmations, processes patient responses to update scheduling data automatically, executes automated follow-up message sequences for post-appointment care and medication reminders, and manages billing cycles and usage analytics across all subscribed clients.
+
+### Technical Architecture
+
+DrSync operates on a decentralized data architecture where each healthcare client maintains complete ownership of their data through their personal Google Sheets accounts and WhatsApp Business numbers. The central DrSync server functions as an intelligent orchestration layer without storing sensitive patient data, instead connecting to each client's individual Google Sheets via secure API authentication to read appointment schedules, patient information, and update booking statuses in real-time. Each client's WhatsApp Business API integration operates independently through their own phone numbers, ensuring brand consistency and direct patient-provider communication channels. The system implements robust authentication, data encryption, and HIPAA-compliant privacy measures while maintaining 99.9% uptime through redundant server architecture and automated failover mechanisms. This architecture ensures complete data sovereignty for healthcare providers while enabling centralized automation and management through the DrSync platform.
+
+### Data Architecture & Follow-up Automation
+
+DrSync implements a unique decentralized data model where patient information and appointment data remain exclusively within each healthcare provider's own Google Sheets account, ensuring complete data ownership and privacy compliance. The DrSync server maintains no persistent patient data, instead functioning as a real-time orchestration engine that connects to multiple client Google Sheets simultaneously through secure API connections. This architecture enables automated follow-up message delivery systems that can send personalized post-appointment care instructions, medication reminders, wellness check-ins, and preventive care notifications based on appointment types and patient histories stored in the client's sheets. The follow-up automation engine supports customizable message templates, scheduled delivery based on appointment completion, conditional messaging based on treatment types, and multi-language support for diverse patient populations, all while maintaining the healthcare provider's direct relationship with their patients through their own WhatsApp Business numbers.
+
+Targeting the growing digital health transformation market in South Asia, DrSync addresses the critical pain points of appointment no-shows, communication barriers, and administrative overhead plaguing traditional healthcare practices. The subscription-based revenue model offers tiered pricing based on patient volume and feature access, with additional revenue streams from premium integrations, custom reporting, and white-label solutions for larger healthcare networks, positioning DrSync as an affordable yet comprehensive alternative to expensive practice management systems.
+
+### Market Positioning & Revenue Model
+
+Targeting the growing digital health transformation market in South Asia, DrSync addresses the critical pain points of appointment no-shows, communication barriers, and administrative overhead plaguing traditional healthcare practices. The subscription-based revenue model offers tiered pricing based on patient volume and feature access, with additional revenue streams from premium integrations, custom reporting, and white-label solutions for larger healthcare networks, positioning DrSync as an affordable yet comprehensive alternative to expensive practice management systems.# DrSync - Healthcare Appointment Management System
