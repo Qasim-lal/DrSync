@@ -1,0 +1,536 @@
+// DrSync Healthcare Appointment Management System
+// Prisma Schema Definition
+// Version: 1.0
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ORGANIZATION & USER MANAGEMENT
+// ============================================================================
+
+// Multi-tenant organization model
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // URL-friendly identifier
+  email       String   @unique
+  phone       String?
+  address     String?
+  website     String?
+  
+  // Subscription and billing
+  subscriptionPlan    SubscriptionPlan @default(FREE)
+  subscriptionStatus  SubscriptionStatus @default(TRIAL)
+  subscriptionEndsAt  DateTime?
+  
+  // Google Sheets integration
+  googleSheetsId      String?  // Google Sheets document ID
+  googleCredentials   Json?    // Encrypted Google OAuth credentials
+  
+  // WhatsApp Business API settings
+  whatsappPhoneNumber String?
+  whatsappBusinessId  String?
+  whatsappCredentials Json?    // Encrypted WhatsApp API credentials
+  
+  // System settings
+  timezone            String   @default("UTC")
+  language            String   @default("en")  // Primary language (en, ur)
+  isActive            Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  users       User[]
+  patients    Patient[]
+  providers   Provider[]
+  appointments Appointment[]
+  messages    WhatsAppMessage[]
+  templates   MessageTemplate[]
+  auditLogs   AuditLog[]
+  
+  @@map("organizations")
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+}
+
+// User accounts for healthcare providers and staff
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String   // Hashed with bcrypt
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?  // URL to profile picture
+  
+  // Role and permissions
+  role          UserRole @default(STAFF)
+  permissions   Json?    // Custom permissions override
+  
+  // Account status
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  lastLoginAt   DateTime?
+  
+  // Multi-factor authentication
+  mfaEnabled    Boolean  @default(false)
+  mfaSecret     String?  // TOTP secret
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // User can be linked to provider profile
+  providerId     String?  @unique
+  provider       Provider? @relation(fields: [providerId], references: [id])
+  
+  auditLogs      AuditLog[]
+  
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN    // DrSync system administrator
+  ORG_ADMIN      // Organization administrator
+  DOCTOR         // Healthcare provider
+  NURSE          // Nursing staff
+  STAFF          // Administrative staff
+  RECEPTIONIST   // Front desk staff
+}
+
+// ============================================================================
+// HEALTHCARE PROVIDERS
+// ============================================================================
+
+model Provider {
+  id              String   @id @default(cuid())
+  
+  // Basic information
+  firstName       String
+  lastName        String
+  title           String?  // Dr., Prof., etc.
+  specialization  String   // e.g., "Cardiology", "General Medicine"
+  licenseNumber   String?  // Medical license number
+  
+  // Contact information
+  email           String?
+  phone           String?
+  
+  // Professional information
+  experience      Int?     // Years of experience
+  qualifications  String[] // Array of qualifications
+  biography       String?  // Professional bio
+  
+  // Scheduling settings
+  isActive        Boolean  @default(true)
+  consultationDuration Int @default(30) // Default duration in minutes
+  consultationFee      Decimal? @db.Decimal(10, 2)
+  currency             String @default("PKR")
+  
+  // Working hours (JSON structure for flexibility)
+  workingHours    Json?    // { "monday": ["09:00-17:00"], "tuesday": ["09:00-12:00", "14:00-17:00"] }
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  user           User?        // Optional linked user account
+  appointments   Appointment[]
+  
+  @@map("providers")
+}
+
+// ============================================================================
+// PATIENT MANAGEMENT
+// ============================================================================
+
+model Patient {
+  id            String   @id @default(cuid())
+  
+  // Personal information
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String   @unique // Primary identifier for WhatsApp
+  dateOfBirth   DateTime?
+  gender        Gender?
+  
+  // Address information
+  address       String?
+  city          String?
+  state         String?
+  postalCode    String?
+  country       String   @default("Pakistan")
+  
+  // Medical information
+  bloodGroup    BloodGroup?
+  allergies     String?  // Free text for allergies
+  medicalHistory String? // Brief medical history
+  emergencyContact String? // Emergency contact information
+  
+  // WhatsApp integration
+  whatsappNumber String? // Formatted WhatsApp number
+  preferredLanguage String @default("en") // en, ur
+  
+  // System information
+  isActive      Boolean  @default(true)
+  registrationSource RegistrationSource @default(WHATSAPP)
+  
+  // Google Sheets sync
+  googleSheetsRowId String? // Row ID in Google Sheets for sync
+  lastSyncedAt      DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  appointments   Appointment[]
+  messages       WhatsAppMessage[]
+  
+  @@map("patients")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum RegistrationSource {
+  WHATSAPP
+  DASHBOARD
+  GOOGLE_SHEETS
+  API
+}
+
+// ============================================================================
+// APPOINTMENT MANAGEMENT
+// ============================================================================
+
+model Appointment {
+  id              String   @id @default(cuid())
+  
+  // Appointment details
+  title           String?  // Optional appointment title
+  description     String?  // Appointment notes/reason
+  
+  // Scheduling
+  scheduledAt     DateTime
+  duration        Int      @default(30) // Duration in minutes
+  endTime         DateTime // Calculated field: scheduledAt + duration
+  
+  // Status management
+  status          AppointmentStatus @default(SCHEDULED)
+  priority        AppointmentPriority @default(NORMAL)
+  
+  // Booking information
+  bookingSource   BookingSource @default(WHATSAPP)
+  bookedAt        DateTime @default(now())
+  
+  // Follow-up and reminders
+  reminderSent    Boolean  @default(false)
+  reminderSentAt  DateTime?
+  followUpSent    Boolean  @default(false)
+  followUpSentAt  DateTime?
+  
+  // Consultation details (filled after appointment)
+  actualStartTime DateTime?
+  actualEndTime   DateTime?
+  consultationNotes String?
+  prescriptions   String?
+  nextAppointmentDate DateTime?
+  
+  // Google Sheets sync
+  googleSheetsRowId String? // Row ID in Google Sheets for sync
+  lastSyncedAt      DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  patientId      String
+  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  providerId     String
+  provider       Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  
+  messages       WhatsAppMessage[]
+  
+  @@index([scheduledAt, providerId]) // For efficient appointment queries
+  @@index([patientId, scheduledAt])  // For patient appointment history
+  @@map("appointments")
+}
+
+enum AppointmentStatus {
+  SCHEDULED     // Initial booking
+  CONFIRMED     // Patient confirmed attendance
+  IN_PROGRESS   // Consultation ongoing
+  COMPLETED     // Consultation finished
+  CANCELLED     // Cancelled by patient or provider
+  NO_SHOW       // Patient didn't show up
+  RESCHEDULED   // Moved to different time
+}
+
+enum AppointmentPriority {
+  LOW
+  NORMAL
+  HIGH
+  EMERGENCY
+}
+
+enum BookingSource {
+  WHATSAPP
+  DASHBOARD
+  PHONE
+  WALK_IN
+  GOOGLE_SHEETS
+}
+
+// ============================================================================
+// WHATSAPP MESSAGING SYSTEM
+// ============================================================================
+
+model WhatsAppMessage {
+  id              String   @id @default(cuid())
+  
+  // Message identifiers
+  whatsappMessageId String? @unique // WhatsApp's message ID
+  threadId        String?  // For grouping related messages
+  
+  // Message content
+  messageType     MessageType @default(TEXT)
+  content         String   // Message text or media URL
+  language        String   @default("en")
+  
+  // Message direction and status
+  direction       MessageDirection
+  status          MessageStatus @default(PENDING)
+  
+  // Delivery tracking
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  readAt          DateTime?
+  failedAt        DateTime?
+  errorMessage    String?  // Error details if failed
+  
+  // Context information
+  intent          MessageIntent? // What the user is trying to do
+  sessionId       String?  // For tracking conversation sessions
+  
+  // Template information (for outbound messages)
+  templateName    String?  // WhatsApp template name
+  templateParams  Json?    // Template parameter values
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  patientId      String
+  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  appointmentId  String?
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+  
+  @@index([patientId, createdAt]) // For conversation history
+  @@index([organizationId, direction, createdAt]) // For organization messaging stats
+  @@map("whatsapp_messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+  AUDIO
+  VIDEO
+  LOCATION
+  CONTACT
+  TEMPLATE
+  INTERACTIVE
+}
+
+enum MessageDirection {
+  INBOUND   // From patient to system
+  OUTBOUND  // From system to patient
+}
+
+enum MessageStatus {
+  PENDING   // Queued for sending
+  SENT      // Sent to WhatsApp API
+  DELIVERED // Delivered to recipient
+  READ      // Read by recipient
+  FAILED    // Failed to send
+}
+
+enum MessageIntent {
+  GREETING
+  BOOK_APPOINTMENT
+  RESCHEDULE_APPOINTMENT
+  CANCEL_APPOINTMENT
+  CHECK_APPOINTMENT
+  GET_CLINIC_INFO
+  GET_DOCTOR_INFO
+  EMERGENCY
+  FEEDBACK
+  OTHER
+}
+
+// Message templates for automated responses
+model MessageTemplate {
+  id            String   @id @default(cuid())
+  name          String   // Template identifier
+  category      TemplateCategory
+  language      String   // Template language (en, ur)
+  
+  // Template content
+  subject       String?  // For structured templates
+  content       String   // Template text with placeholders
+  mediaUrl      String?  // Optional media attachment
+  
+  // WhatsApp Business API template info
+  whatsappTemplateId String? // WhatsApp's template ID
+  templateStatus     TemplateStatus @default(DRAFT)
+  
+  // Usage tracking
+  isActive      Boolean  @default(true)
+  usageCount    Int      @default(0)
+  lastUsedAt    DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@unique([organizationId, name, language]) // Unique template per org per language
+  @@map("message_templates")
+}
+
+enum TemplateCategory {
+  WELCOME
+  APPOINTMENT_CONFIRMATION
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CANCELLATION
+  FOLLOW_UP
+  MEDICATION_REMINDER
+  WELLNESS_CHECK
+  CLINIC_INFO
+  EMERGENCY_RESPONSE
+  FEEDBACK_REQUEST
+  CUSTOM
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  DISABLED
+}
+
+// ============================================================================
+// AUDIT AND LOGGING
+// ============================================================================
+
+// Comprehensive audit trail for all system activities
+model AuditLog {
+  id            String   @id @default(cuid())
+  
+  // Action details
+  action        String   // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entityType    String   // Patient, Appointment, User, etc.
+  entityId      String?  // ID of affected entity
+  
+  // Change tracking
+  oldValues     Json?    // Previous values (for updates)
+  newValues     Json?    // New values
+  
+  // Context information
+  ipAddress     String?
+  userAgent     String?
+  source        String?  // WHATSAPP, DASHBOARD, API, etc.
+  
+  // Metadata
+  metadata      Json?    // Additional context information
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  userId         String?  // User who performed the action
+  user           User?    @relation(fields: [userId], references: [id])
+  
+  @@index([organizationId, entityType, createdAt]) // For efficient audit queries
+  @@index([userId, createdAt]) // For user activity tracking
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// SYSTEM CONFIGURATION
+// ============================================================================
+
+// System-wide configuration settings
+model SystemConfig {
+  id            String   @id @default(cuid())
+  key           String   @unique // Configuration key
+  value         String   // Configuration value
+  description   String?  // Human-readable description
+  category      String   @default("general") // Grouping category
+  isEncrypted   Boolean  @default(false) // Whether value is encrypted
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_config")
+}

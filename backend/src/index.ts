@@ -9,7 +9,7 @@ import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
 import { logger } from './utils/logger';
-import { connectDatabase } from './config/database';
+import { connectDatabase } from './services/prisma';
 import { connectRedis } from './config/redis';
 
 // Import routes
