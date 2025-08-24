@@ -16,8 +16,8 @@ COPY . .
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodejs -u 1001
 
-# Change ownership of app directory
-RUN chown -R nodejs:nodejs /app
+# Create .next directory and change ownership
+RUN mkdir -p /app/.next && chown -R nodejs:nodejs /app
 USER nodejs
 
 # Expose port
