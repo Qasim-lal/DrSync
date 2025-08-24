@@ -297,21 +297,33 @@ Key environment variables for frontend configuration:
 
 ## 📋 Development Workflow
 
+### 🚨 **CRITICAL GIT RULES** 🚨
+**❌ NEVER push directly to `main` or `develop` branches**  
+**✅ ALWAYS use feature branches for ALL changes**
+
+### Mandatory Workflow:
 1. **Feature Development**
-   - Create feature branch from `main`
-   - Develop and test locally
-   - Run linting and tests
-   - Create pull request
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/your-task-name
+   # Do your work...
+   git push -u origin feature/your-task-name
+   # Create PR: feature/your-task-name → develop
+   ```
 
 2. **Code Quality**
    - Pre-commit hooks run ESLint and Prettier
    - All tests must pass
    - Code coverage should be maintained
+   - Pull request review required
 
 3. **Database Changes**
    - Create migration scripts in `backend/migrations/`
    - Test migrations locally
    - Document schema changes
+
+**📖 Full workflow details:** [See .github/DEVELOPMENT_WORKFLOW.md](.github/DEVELOPMENT_WORKFLOW.md)
 
 ## 📚 Additional Resources
 
