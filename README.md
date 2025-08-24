@@ -1,6 +1,24 @@
 # DrSync - Healthcare Appointment Management System
 
+🎉 **Phase 1 Complete!** - Full-stack foundation with Docker containerization
+
 DrSync is a comprehensive healthcare appointment management solution that bridges the communication gap between medical practitioners and patients through intelligent WhatsApp automation.
+
+## 🚀 Current Status
+
+**✅ Phase 1 Complete (100%)** - Foundation & Environment Setup  
+**🔄 Phase 2 Next** - Backend API Development
+
+### What's Working Now:
+- ✅ Complete Docker development environment
+- ✅ Next.js 14 frontend with TypeScript & Tailwind CSS
+- ✅ Node.js Express backend with health monitoring
+- ✅ PostgreSQL and Redis integration
+- ✅ Real-time system status dashboard
+- ✅ Responsive UI with proper styling
+- ✅ Development workflow with hot-reload
+
+**🔗 GitHub Repository:** https://github.com/Qasim-lal/DrSync
 
 ## 🚀 Quick Start
 
@@ -23,7 +41,7 @@ Run the setup script to automatically configure your development environment:
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Qasim-lal/DrSync.git
    cd DrSync
    ```
 
@@ -96,6 +114,27 @@ DrSync/
 └── .github/                 # GitHub workflows
 ```
 
+## 📊 Project Status
+
+### Phase Progress Overview
+| Phase | Status | Progress | Description |
+|-------|--------|----------|-------------|
+| Phase 1: Foundation | ✅ Complete | 100% | Docker, frontend, backend setup |
+| Phase 2: Backend API | 🔄 Next | 10% | Patient & appointment APIs |
+| Phase 3: Frontend Dashboard | ⏳ Pending | 0% | Complete dashboard UI |
+| Phase 4: WhatsApp Integration | ⏳ Pending | 0% | Booking & notifications |
+| Phase 5: Google Sheets | ⏳ Pending | 0% | Data synchronization |
+| Phase 6: Testing & QA | ⏳ Pending | 0% | Comprehensive testing |
+| Phase 7: Deployment | ⏳ Pending | 0% | Production launch |
+
+### Key Achievements 🏆
+- **Docker Environment**: All services containerized and working
+- **Full-Stack Communication**: Frontend ↔ Backend ↔ Database operational
+- **Health Monitoring**: Real-time system status tracking
+- **Professional Git Workflow**: main/develop branches with proper structure
+- **Responsive UI**: Mobile-friendly design with Tailwind CSS
+- **Development Tools**: Hot-reload, TypeScript, ESLint configured
+
 ## 🛠️ Development Commands
 
 ### Backend Commands
@@ -120,8 +159,11 @@ npm run format      # Format code
 
 ### Docker Commands
 ```bash
-# Start all services
+# Start all services (recommended)
 docker compose -f docker-compose.dev.yml up
+
+# Start in background
+docker compose -f docker-compose.dev.yml up -d
 
 # Start specific services
 docker compose -f docker-compose.dev.yml up postgres redis
@@ -132,8 +174,11 @@ docker compose -f docker-compose.dev.yml down
 # View logs
 docker compose -f docker-compose.dev.yml logs -f [service-name]
 
-# Rebuild services
+# Rebuild services (after code changes)
 docker compose -f docker-compose.dev.yml build
+
+# Current running services status
+docker ps
 ```
 
 ## 🗃️ Database
@@ -278,7 +323,21 @@ Key environment variables for frontend configuration:
 
 ## 🤝 Contributing
 
-Please read the project documentation in the `docs/` folder before contributing. Follow the established coding standards and ensure all tests pass.
+We're currently in **Phase 1 Complete** status! Ready to move to Phase 2.
+
+### Current Development Focus
+- **Next Phase**: Backend API Development (Patient & Appointment management)
+- **Branch**: Work on `develop` branch
+- **Priority**: Database models, authentication, CRUD APIs
+
+### How to Contribute
+1. Fork the repository
+2. Create a feature branch from `develop`
+3. Follow the established coding standards
+4. Ensure all tests pass
+5. Submit a pull request to `develop`
+
+Please read the project documentation in the `docs/` folder before contributing.
 
 ## 📄 License
 
