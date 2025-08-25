@@ -104,7 +104,7 @@ export const authenticate = async (
  */
 export const optionalAuth = async (
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
@@ -227,7 +227,7 @@ export const requireStaff = authorize(['STAFF', 'RECEPTIONIST', 'NURSE', 'DOCTOR
 /**
  * Rate limiting middleware for authentication endpoints
  */
-export const authRateLimit = (req: Request, res: Response, next: NextFunction): void => {
+export const authRateLimit = (_req: Request, _res: Response, next: NextFunction): void => {
   // This would integrate with express-rate-limit for login attempts
   // For now, just pass through - rate limiting is handled at app level
   next();

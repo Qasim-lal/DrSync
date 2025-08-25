@@ -1,18 +1,16 @@
 import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { asyncHandler } from '../middleware/errorHandler';
-import { authenticate, authorizeResourceAccess } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { authService } from '../services/auth';
 import { logger } from '../utils/logger';
 import {
   validateLogin,
   validateRegister,
-  validateRefreshToken,
   validateChangePassword,
   validateUpdateProfile,
   LoginRequest,
   RegisterRequest,
-  RefreshTokenRequest,
   ChangePasswordRequest,
   UpdateProfileRequest,
 } from '../utils/validation/auth';
@@ -84,7 +82,7 @@ router.post('/login', loginLimiter, validateLogin, asyncHandler(async (req: Requ
 
     logger.info(`User logged in successfully: ${user.email}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Login successful',
       data: {
@@ -104,7 +102,7 @@ router.post('/login', loginLimiter, validateLogin, asyncHandler(async (req: Requ
     });
   } catch (error) {
     logger.error('Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Login process failed',
@@ -119,17 +117,21 @@ router.post('/login', loginLimiter, validateLogin, asyncHandler(async (req: Requ
  */
 router.post('/register', authLimiter, validateRegister, asyncHandler(async (req: Request, res: Response) => {
   const userData: RegisterRequest = req.body;
+  const createUserData = {
+    ...userData,
+    phone: userData.phone || null
+  };
 
   try {
     // Create new user
-    const user = await authService.createUser(userData);
+    const user = await authService.createUser(createUserData);
 
     // Generate JWT token pair
     const tokens = authService.generateTokenPair(user);
 
     logger.info(`New user registered: ${user.email}`);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'User registered successfully',
       data: {
@@ -157,7 +159,7 @@ router.post('/register', authLimiter, validateRegister, asyncHandler(async (req:
       });
     }
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Registration process failed',
@@ -171,7 +173,7 @@ router.post('/register', authLimiter, validateRegister, asyncHandler(async (req:
  * Refresh access token using refresh token
  */
 router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
-  const { refreshToken }: RefreshTokenRequest = req.body;
+  const { refreshToken }: { refreshToken?: string } = req.body;
   
   // Also check for refresh token in HTTP-only cookie
   const cookieRefreshToken = req.cookies?.refreshToken;
@@ -209,7 +211,7 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Token refreshed successfully',
       data: {
@@ -218,7 +220,7 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Token refresh error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Token refresh process failed',
@@ -309,9 +311,20 @@ router.get('/me', authenticate, asyncHandler(async (req: Request, res: Response)
 router.put('/profile', authenticate, validateUpdateProfile, asyncHandler(async (req: Request, res: Response) => {
   const updateData: UpdateProfileRequest = req.body;
   const userId = req.user!.id;
+  const cleanUpdateData: {
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
+    avatar?: string;
+  } = {};
+  
+  if (updateData.firstName) cleanUpdateData.firstName = updateData.firstName;
+  if (updateData.lastName) cleanUpdateData.lastName = updateData.lastName;
+  if (updateData.phone) cleanUpdateData.phone = updateData.phone;
+  if (updateData.avatar) cleanUpdateData.avatar = updateData.avatar;
 
   try {
-    const updatedUser = await authService.updateUserProfile(userId, updateData);
+    const updatedUser = await authService.updateUserProfile(userId, cleanUpdateData);
     
     if (!updatedUser) {
       return res.status(404).json({
@@ -324,7 +337,7 @@ router.put('/profile', authenticate, validateUpdateProfile, asyncHandler(async (
 
     logger.info(`User profile updated: ${updatedUser.email}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
@@ -341,7 +354,7 @@ router.put('/profile', authenticate, validateUpdateProfile, asyncHandler(async (
     });
   } catch (error) {
     logger.error('Update profile error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Failed to update user profile',
@@ -372,14 +385,14 @@ router.post('/change-password', authenticate, validateChangePassword, asyncHandl
 
     logger.info(`Password changed for user: ${req.user!.email}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Password changed successfully',
       data: null,
     });
   } catch (error) {
     logger.error('Change password error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error',
       message: 'Failed to change password',

@@ -1,8 +1,10 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { User } from '@prisma/client';
-import { prisma } from './prisma';
+import type { User } from '../generated/prisma';
+import { getPrismaClient } from './prisma';
 import { logger } from '../utils/logger';
+
+const prisma = getPrismaClient();
 
 export interface JWTPayload {
   userId: string;
@@ -69,11 +71,15 @@ export class AuthService {
       email: user.email,
     };
 
-    const accessToken = jwt.sign(payload, this.jwtSecret, {
-      expiresIn: this.accessTokenExpiry,
-      issuer: 'drsync-api',
-      audience: 'drsync-client',
-    });
+    const accessToken = jwt.sign(
+      payload, 
+      this.jwtSecret, 
+      {
+        expiresIn: this.accessTokenExpiry,
+        issuer: 'drsync-api',
+        audience: 'drsync-client',
+      } as jwt.SignOptions
+    );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
@@ -82,7 +88,7 @@ export class AuthService {
         expiresIn: this.refreshTokenExpiry,
         issuer: 'drsync-api',
         audience: 'drsync-client',
-      }
+      } as jwt.SignOptions
     );
 
     return { accessToken, refreshToken };
@@ -288,7 +294,7 @@ export class AuthService {
     lastName: string;
     organizationId: string;
     role?: string;
-    phone?: string;
+    phone?: string | null;
   }): Promise<AuthUser> {
     try {
       const hashedPassword = await this.hashPassword(userData.password);
@@ -301,7 +307,7 @@ export class AuthService {
           lastName: userData.lastName,
           organizationId: userData.organizationId,
           role: (userData.role as any) || 'STAFF',
-          phone: userData.phone,
+          phone: userData.phone || null,
           isActive: true,
         },
         include: {
