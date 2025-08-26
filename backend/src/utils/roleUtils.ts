@@ -187,7 +187,33 @@ export const hasMinimumRole = (user: AuthUser, minimumRole: UserRole): boolean =
  */
 export const belongsToRoleGroup = (user: AuthUser, groupName: keyof typeof ROLE_GROUPS): boolean => {
   const allowedRoles = ROLE_GROUPS[groupName] || [];
-  return allowedRoles.includes(user.role as UserRole);
+  return allowedRoles.includes(user.role as any);
+};
+
+/**
+ * Middleware factory to authorize specific roles
+ */
+export const authorize = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+      return;
+    }
+
+    const userRole = (req.user as any).role;
+    if (!allowedRoles.includes(userRole)) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied: Insufficient permissions'
+      });
+      return;
+    }
+
+    next();
+  };
 };
 
 /**

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { authService, AuthUser } from '../services/auth';
+import { AuthUser } from '../services/auth';
 import { logger } from '../utils/logger';
 
 /**

@@ -207,60 +207,161 @@ DELETE /api/organizations/:organizationId/users/:userId
 
 ---
 
-### 👥 Patient Management Endpoints
+### 👥 Patient Management Endpoints (✅ FULLY IMPLEMENTED)
 
-#### List Patients
+#### List Patients with Search & Pagination
 ```http
 GET /api/patients
 ```
-**Required Role:** `RECEPTIONIST` or higher
-**Organization Scope:** Yes
+**Required Role:** `STAFF`, `NURSE`, `DOCTOR`, `ORG_ADMIN`, `SUPER_ADMIN`
+**Organization Scope:** Yes - Users only see patients from their organization
 **Query Parameters:**
-- `limit`: Number of results
-- `offset`: Pagination offset
-- `search`: Search by name/phone
+- `page`: Page number (default: 1)
+- `limit`: Results per page (default: 20, max: 100)
+- `search`: Search by firstName, lastName, email, or phone
+- `sortBy`: Sort field (firstName, lastName, createdAt, dateOfBirth)
+- `sortOrder`: Sort direction (asc, desc)
 
-#### Get Patient Details
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "patients": [
+      {
+        "id": "patient-id",
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "john.doe@example.com",
+        "phone": "+1234567890",
+        "dateOfBirth": "1985-05-15",
+        "gender": "MALE",
+        "address": "123 Main St",
+        "insuranceProvider": "Health Plus",
+        "createdAt": "2024-01-01T00:00:00.000Z",
+        "updatedAt": "2024-01-01T00:00:00.000Z",
+        // Medical fields only for DOCTOR+ roles:
+        "medicalHistory": "No significant history",
+        "allergies": "None known", 
+        "currentMedications": "None",
+        "notes": "Regular patient"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 150,
+      "totalPages": 8,
+      "hasNext": true,
+      "hasPrev": false
+    }
+  }
+}
+```
+
+**Field Visibility by Role:**
+- **STAFF/NURSE**: Basic patient info (no medical history, allergies, medications, notes)
+- **DOCTOR+**: All fields including sensitive medical information
+
+#### Get Single Patient Details
 ```http
 GET /api/patients/:patientId
 ```
-**Required Role:** 
-- Basic info: `RECEPTIONIST` or higher
-- Full medical record: `DOCTOR` or higher
-**Organization Scope:** Yes
+**Required Role:** `STAFF`, `NURSE`, `DOCTOR`, `ORG_ADMIN`, `SUPER_ADMIN`
+**Organization Scope:** Yes - 404 if patient not in user's organization
+**Response:** Single patient object with role-based field visibility
 
-#### Create Patient
+#### Create New Patient
 ```http
 POST /api/patients
 ```
-**Required Role:** `RECEPTIONIST` or higher
-**Organization Scope:** Yes
-**Body:** Patient information
+**Required Role:** `NURSE`, `DOCTOR`, `ORG_ADMIN`, `SUPER_ADMIN`
+**Organization Scope:** Yes - Patient automatically assigned to user's organization
+**Body:**
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com", // Optional
+  "phone": "+1234567890", // Required, validated format
+  "dateOfBirth": "1985-05-15", // Required, YYYY-MM-DD format
+  "gender": "MALE", // Required: MALE, FEMALE, OTHER
+  "address": "123 Main St", // Optional
+  "emergencyContact": "Jane Doe", // Optional
+  "emergencyPhone": "+1234567891", // Optional, validated format
+  "medicalHistory": "No significant medical history", // Optional
+  "allergies": "None known", // Optional
+  "currentMedications": "None", // Optional  
+  "insuranceProvider": "Health Plus", // Optional
+  "insuranceNumber": "HP123456789", // Optional
+  "notes": "Regular checkup patient" // Optional
+}
+```
 
-#### Update Patient
+**Validation Rules:**
+- Phone numbers must be unique within organization
+- Email addresses must be unique within organization (if provided)
+- Date of birth cannot be in future or indicate age > 150
+- All phone numbers validated with international format regex
+- Email addresses validated with proper email format
+
+**Response:** Created patient object (status 201)
+
+#### Update Patient Information
 ```http
 PUT /api/patients/:patientId
 ```
-**Required Role:** 
-- Basic info: `RECEPTIONIST` or higher
-- Medical data: `NURSE` or higher
-**Organization Scope:** Yes
-**Body:** Updated patient data
+**Required Role:** `NURSE`, `DOCTOR`, `ORG_ADMIN`, `SUPER_ADMIN`
+**Organization Scope:** Yes - 404 if patient not in user's organization
+**Body:** Same as create, but all fields optional (partial update)
 
-#### Get Patient Medical History
-```http
-GET /api/patients/:patientId/medical-history
-```
-**Required Role:** `NURSE` or higher
-**Organization Scope:** Yes
+**Validation:**
+- Duplicate phone/email checking (excluding current patient)
+- Date of birth validation if provided
+- Organization isolation enforced
 
-#### Add Medical Record
+**Response:** Updated patient object
+
+#### Delete Patient
 ```http
-POST /api/patients/:patientId/medical-records
+DELETE /api/patients/:patientId
 ```
-**Required Role:** `DOCTOR` or higher
-**Organization Scope:** Yes
-**Body:** Medical record data
+**Required Role:** `ORG_ADMIN`, `SUPER_ADMIN` (High-level admin only)
+**Organization Scope:** Yes - 404 if patient not in user's organization
+**Business Rules:**
+- Cannot delete patient with existing appointments
+- Must cancel all appointments first
+
+**Response:** Success confirmation message
+
+#### Get Patient Statistics
+```http
+GET /api/patients/stats
+```
+**Required Role:** `DOCTOR`, `ORG_ADMIN`, `SUPER_ADMIN` (Analytics access)
+**Organization Scope:** Yes - Statistics only for user's organization
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalPatients": 150,
+    "newPatientsThisMonth": 12,
+    "genderDistribution": [
+      { "gender": "MALE", "count": 75 },
+      { "gender": "FEMALE", "count": 70 },
+      { "gender": "OTHER", "count": 5 }
+    ],
+    "ageDistribution": [
+      { "age_group": "Under 18", "count": 20 },
+      { "age_group": "18-35", "count": 45 },
+      { "age_group": "36-55", "count": 50 },
+      { "age_group": "56-75", "count": 30 },
+      { "age_group": "Over 75", "count": 5 }
+    ]
+  }
+}
+```
 
 ---
 
