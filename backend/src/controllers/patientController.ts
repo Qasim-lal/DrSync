@@ -23,7 +23,9 @@ const createPatientSchema = z.object({
   medicalHistory: z.string().max(2000).optional(),
   emergencyContact: z.string().max(100).optional(),
   whatsappNumber: z.string().max(20).optional(),
-  preferredLanguage: z.enum(['en', 'ur']).optional().default('en')
+  preferredLanguage: z.enum(['en', 'ur']).optional().default('en'),
+  primaryContact: z.boolean().optional().default(true),
+  relationToPrimaryContact: z.string().max(50).optional()
 });
 
 const updatePatientSchema = createPatientSchema.partial();
@@ -207,21 +209,23 @@ export class PatientController {
     try {
       const validatedData = createPatientSchema.parse(req.body);
 
-      // Check for duplicate phone number in organization
-      const existingPatient = await prisma.patient.findFirst({
+      // Check for existing patients with this phone number (family support)
+      const existingPatients = await prisma.patient.findMany({
         where: {
           phone: validatedData.phone,
           organizationId: req.user!.organizationId
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          primaryContact: true,
+          relationToPrimaryContact: true
         }
       });
 
-      if (existingPatient) {
-        res.status(409).json({
-          success: false,
-          message: 'Patient with this phone number already exists in your organization'
-        });
-        return;
-      }
+      // If patients exist with this phone, this is a family member
+      const isNewFamilyMember = existingPatients.length > 0;
 
       // Check for duplicate email if provided
       if (validatedData.email) {
@@ -278,6 +282,22 @@ export class PatientController {
         }
       });
       createData.organizationId = req.user!.organizationId;
+
+      // Handle family member logic
+      if (isNewFamilyMember) {
+        // If this is a family member, set primaryContact to false unless explicitly specified
+        if (createData.primaryContact === undefined) {
+          createData.primaryContact = false;
+        }
+        
+        // Set default relation if not provided
+        if (!createData.relationToPrimaryContact) {
+          createData.relationToPrimaryContact = 'family_member';
+        }
+        
+        // Log family member creation
+        console.log(`Creating family member for phone ${validatedData.phone}: ${createData.firstName} ${createData.lastName}`);
+      }
 
       const patient = await prisma.patient.create({
         data: createData,
@@ -358,24 +378,7 @@ export class PatientController {
         return;
       }
 
-      // Check for duplicate phone if phone is being updated
-      if (validatedData.phone && validatedData.phone !== existingPatient.phone) {
-        const duplicatePhone = await prisma.patient.findFirst({
-          where: {
-            phone: validatedData.phone,
-            organizationId: req.user!.organizationId,
-            NOT: { phone: existingPatient.phone }
-          }
-        });
-
-        if (duplicatePhone) {
-          res.status(409).json({
-            success: false,
-            message: 'Another patient with this phone number already exists'
-          });
-          return;
-        }
-      }
+      // Note: Multiple patients can share the same phone number (family members)
 
       // Check for duplicate email if email is being updated
       if (validatedData.email && validatedData.email !== existingPatient.email) {

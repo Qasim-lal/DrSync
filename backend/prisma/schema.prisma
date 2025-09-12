@@ -31,19 +31,29 @@ model Organization {
   subscriptionStatus  SubscriptionStatus @default(TRIAL)
   subscriptionEndsAt  DateTime?
   
-  // Google Sheets integration
-  googleSheetsId      String?  // Google Sheets document ID
-  googleCredentials   Json?    // Encrypted Google OAuth credentials
+  // Google Sheets integration (client-owned)
+  googleSheetsId      String?  // Google Sheets document ID (client's own sheet)
+  googleCredentials   Json?    // Encrypted Google OAuth credentials for client's sheet
+  googleSheetsStructure String @default("TABS") // "TABS" or "SEPARATE_SHEETS"
   
-  // WhatsApp Business API settings
-  whatsappPhoneNumber String?
-  whatsappBusinessId  String?
-  whatsappCredentials Json?    // Encrypted WhatsApp API credentials
+  // WhatsApp Business API settings (client's own WhatsApp)
+  whatsappPhoneNumber String?  // Client's WhatsApp Business number
+  whatsappBusinessId  String?  // Client's WhatsApp Business ID  
+  whatsappCredentials Json?    // Client's WhatsApp API credentials
+  whatsappWebhookUrl  String?  // Unique webhook URL for this client
   
   // System settings
   timezone            String   @default("UTC")
   language            String   @default("en")  // Primary language (en, ur)
+  region              String   @default("PAKISTAN") // "PAKISTAN" or "INTERNATIONAL"
   isActive            Boolean  @default(true)
+  
+  // Subscription billing
+  subscriptionType    String?  // "MONTHLY" or "YEARLY"
+  lastBilledAt        DateTime?
+  nextBillingDate     DateTime?
+  doctorCount         Int      @default(1)
+  paymentMethod       String?  // "JAZZCASH", "EASYPAISA", "PAYONEER", "USDT", etc.
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -56,6 +66,7 @@ model Organization {
   messages    WhatsAppMessage[]
   templates   MessageTemplate[]
   auditLogs   AuditLog[]
+  billingHistory BillingHistory[]
   
   @@map("organizations")
 }
@@ -179,7 +190,7 @@ model Patient {
   firstName     String
   lastName      String
   email         String?
-  phone         String   @unique // Primary identifier for WhatsApp
+  phone         String   // Primary identifier for WhatsApp
   dateOfBirth   DateTime?
   gender        Gender?
   
@@ -196,8 +207,10 @@ model Patient {
   medicalHistory String? // Brief medical history
   emergencyContact String? // Emergency contact information
   
-  // WhatsApp integration
-  whatsappNumber String? // Formatted WhatsApp number
+  // WhatsApp integration - for families sharing same WhatsApp number
+  whatsappNumber String? // Formatted WhatsApp number (can be same for family members)
+  primaryContact Boolean @default(true) // Is this the primary contact for this phone number
+  relationToPrimaryContact String? // "self", "child", "spouse", "parent", etc.
   preferredLanguage String @default("en") // en, ur
   
   // System information
@@ -218,6 +231,8 @@ model Patient {
   appointments   Appointment[]
   messages       WhatsAppMessage[]
   
+  // No unique constraint on phone - allows multiple patients per phone number
+  // This supports families using same WhatsApp number for multiple patients
   @@map("patients")
 }
 
@@ -282,6 +297,11 @@ model Appointment {
   consultationNotes String?
   prescriptions   String?
   nextAppointmentDate DateTime?
+  
+  // Conflict resolution and atomic operations
+  lockToken         String?  // UUID for atomic booking operations
+  lockedAt          DateTime? // When slot was locked for booking
+  lockedBy          String?  // Source of lock ("WHATSAPP", "DASHBOARD", etc.)
   
   // Google Sheets sync
   googleSheetsRowId String? // Row ID in Google Sheets for sync
@@ -533,4 +553,43 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
   
   @@map("system_config")
+}
+
+// Trial abuse prevention tracking
+model TrialHistory {
+  id                String   @id @default(cuid())
+  phoneNumber       String   // Primary identifier
+  email             String   // Secondary identifier
+  organizationName  String   // Clinic/organization name
+  phoneVerified     Boolean  @default(false) // SMS/WhatsApp verification status
+  ipAddress         String?  // Registration IP
+  userAgent         String?  // Browser fingerprint
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([phoneNumber]) // One trial per phone number
+  @@index([email])
+  @@index([organizationName])
+  @@map("trial_history")
+}
+
+// Subscription billing history
+model BillingHistory {
+  id              String   @id @default(cuid())
+  organizationId  String
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   // "PKR" or "USD"
+  paymentMethod   String   // "JAZZCASH", "PAYONEER", etc.
+  paymentStatus   String   // "SUCCESS", "FAILED", "PENDING"
+  transactionId   String?  // External payment gateway transaction ID
+  billingPeriod   String   // "2025-09" for monthly, "2025" for yearly
+  doctorCount     Int      // Number of doctors billed for
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId, billingPeriod])
+  @@map("billing_history")
 }

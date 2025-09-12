@@ -55,12 +55,19 @@ DrSync operates as a three-tier system:
 - Automated reminders and follow-ups
 - Analytics and reporting
 - Multi-client subscription management
+- Progressive Web Application (PWA) deployment
+- Automated client onboarding and configuration
+- Trial abuse prevention system (phone verification)
+- Multi-region subscription billing (PKR/USD)
+- Super admin platform management
 
 ### 2.3 User Classes and Characteristics
 1. **Patients**: End users booking appointments via WhatsApp
 2. **Healthcare Providers**: Doctors managing appointments and patients
 3. **Administrative Staff**: Clinic staff managing day-to-day operations
-4. **System Administrators**: DrSync staff managing the platform
+4. **Organization Admins**: Clinic administrators managing their organization settings
+5. **System Administrators**: DrSync staff managing the platform
+6. **Super Administrators**: DrSync platform managers with full system access
 
 ### 2.4 Operating Environment
 - **Client Side**: Web browsers, mobile devices, WhatsApp
@@ -70,7 +77,41 @@ DrSync operates as a three-tier system:
 
 ## 3. System Features
 
-### 3.1 WhatsApp Chatbot Interface
+### 3.1 SaaS Platform Management
+
+#### 3.1.1 Description
+Multi-tenant SaaS platform supporting multiple healthcare organizations on a single deployment.
+
+#### 3.1.2 Functional Requirements
+- **REQ-SAAS-001**: System SHALL support multiple organizations with complete data isolation
+- **REQ-SAAS-002**: System SHALL route WhatsApp messages to correct organization based on webhook URL or phone mapping
+- **REQ-SAAS-003**: System SHALL provide automated organization registration via signup page
+- **REQ-SAAS-004**: System SHALL deploy as Progressive Web Application (PWA) requiring no client installations
+- **REQ-SAAS-005**: System SHALL send setup instructions via email after organization registration
+- **REQ-SAAS-006**: System SHALL provide configuration wizard for WhatsApp Business API setup
+- **REQ-SAAS-007**: System SHALL provide configuration wizard for Google Sheets integration
+- **REQ-SAAS-008**: System SHALL support staff management with role-based user accounts per organization
+- **REQ-SAAS-009**: System SHALL provide super admin dashboard for platform-wide monitoring
+- **REQ-SAAS-010**: System SHALL implement trial period management with phone verification abuse prevention
+
+### 3.2 Subscription and Billing Management
+
+#### 3.2.1 Description
+Comprehensive subscription management supporting Pakistani and international markets.
+
+#### 3.2.2 Functional Requirements
+- **REQ-BILLING-001**: System SHALL support monthly and yearly subscription plans with discounts
+- **REQ-BILLING-002**: System SHALL support multi-currency billing (PKR, USD)
+- **REQ-BILLING-003**: System SHALL integrate Payoneer for international credit/debit card payments
+- **REQ-BILLING-004**: System SHALL integrate JazzCash and EasyPaisa for local Pakistani payments
+- **REQ-BILLING-005**: System SHALL support USDT cryptocurrency payments
+- **REQ-BILLING-006**: System SHALL provide automated invoice generation and delivery
+- **REQ-BILLING-007**: System SHALL handle subscription renewals and cancellations
+- **REQ-BILLING-008**: System SHALL implement grace period for expired subscriptions
+- **REQ-BILLING-009**: System SHALL provide billing analytics and reporting
+- **REQ-BILLING-010**: System SHALL support proration for plan upgrades/downgrades
+
+### 3.3 WhatsApp Chatbot Interface
 
 #### 3.1.1 Description
 Intelligent WhatsApp chatbot providing menu-driven appointment management.
@@ -83,13 +124,16 @@ Intelligent WhatsApp chatbot providing menu-driven appointment management.
 - **REQ-WA-005**: System SHALL allow appointment booking, rescheduling, and cancellation
 - **REQ-WA-006**: System SHALL send automated booking confirmations
 - **REQ-WA-007**: System SHALL provide clinic information and location details
+- **REQ-WA-008**: System SHALL manage multiple client WhatsApp Business numbers simultaneously
+- **REQ-WA-009**: System SHALL support family member registration via shared WhatsApp number
+- **REQ-WA-010**: System SHALL handle booking conflicts with intelligent slot suggestions
 
-### 3.2 Healthcare Provider Dashboard
+### 3.4 Healthcare Provider Dashboard
 
-#### 3.2.1 Description
+#### 3.4.1 Description
 Responsive Progressive Web Application (PWA) for healthcare providers and staff.
 
-#### 3.2.2 Functional Requirements
+#### 3.4.2 Functional Requirements
 - **REQ-DASH-001**: System SHALL provide secure user authentication
 - **REQ-DASH-002**: System SHALL display patient database with search and filtering
 - **REQ-DASH-003**: System SHALL enable CRUD operations for appointments
@@ -98,12 +142,12 @@ Responsive Progressive Web Application (PWA) for healthcare providers and staff.
 - **REQ-DASH-006**: System SHALL allow bulk operations on appointments
 - **REQ-DASH-007**: System SHALL support mobile and desktop interfaces
 
-### 3.3 Appointment Management System
+### 3.5 Appointment Management System
 
-#### 3.3.1 Description
+#### 3.5.1 Description
 Core appointment scheduling and management functionality.
 
-#### 3.3.2 Functional Requirements
+#### 3.5.2 Functional Requirements
 - **REQ-APPT-001**: System SHALL validate appointment availability in real-time
 - **REQ-APPT-002**: System SHALL prevent double-booking conflicts
 - **REQ-APPT-003**: System SHALL support recurring appointment patterns
@@ -111,13 +155,16 @@ Core appointment scheduling and management functionality.
 - **REQ-APPT-005**: System SHALL maintain appointment history
 - **REQ-APPT-006**: System SHALL support emergency appointment booking
 - **REQ-APPT-007**: System SHALL handle appointment waitlists
+- **REQ-APPT-008**: System SHALL implement slot locking during booking process
+- **REQ-APPT-009**: System SHALL suggest next available slot if requested slot is taken
+- **REQ-APPT-010**: System SHALL support family-based patient management with shared contact numbers
 
-### 3.4 Automated Communication System
+### 3.6 Automated Communication System
 
-#### 3.4.1 Description
+#### 3.6.1 Description
 Automated messaging and follow-up system for patient engagement.
 
-#### 3.4.2 Functional Requirements
+#### 3.6.2 Functional Requirements
 - **REQ-COMM-001**: System SHALL send appointment reminders 24 hours before scheduled time
 - **REQ-COMM-002**: System SHALL send appointment confirmations upon booking
 - **REQ-COMM-003**: System SHALL deliver customizable follow-up messages post-appointment
@@ -126,19 +173,22 @@ Automated messaging and follow-up system for patient engagement.
 - **REQ-COMM-006**: System SHALL handle message scheduling and queuing
 - **REQ-COMM-007**: System SHALL support message templates with personalization
 
-### 3.5 Data Integration System
+### 3.7 Data Integration System
 
-#### 3.5.1 Description
+#### 3.7.1 Description
 Google Sheets integration for decentralized data management.
 
-#### 3.5.2 Functional Requirements
+#### 3.7.2 Functional Requirements
 - **REQ-DATA-001**: System SHALL connect to multiple client Google Sheets simultaneously
 - **REQ-DATA-002**: System SHALL read and update appointment data in real-time
 - **REQ-DATA-003**: System SHALL maintain data synchronization between WhatsApp and sheets
 - **REQ-DATA-004**: System SHALL validate data integrity before updates
 - **REQ-DATA-005**: System SHALL handle Google Sheets API rate limits
-- **REQ-DATA-006**: System SHALL support custom sheet structures per client
+- **REQ-DATA-006**: System SHALL support custom sheet structures per client (tabs or separate sheets)
 - **REQ-DATA-007**: System SHALL maintain audit logs for all data operations
+- **REQ-DATA-008**: System SHALL implement atomic booking operations to prevent double-booking
+- **REQ-DATA-009**: System SHALL support multiple patients per phone number for family accounts
+- **REQ-DATA-010**: System SHALL resolve booking conflicts by suggesting alternative slots
 
 ## 4. External Interface Requirements
 
@@ -216,6 +266,20 @@ Google Sheets integration for decentralized data management.
 - **US-AS002**: As administrative staff, I want to handle appointment conflicts so that I can optimize scheduling
 - **US-AS003**: As administrative staff, I want to export appointment data so that I can create custom reports
 
+### 6.4 Organization Admin Stories
+- **US-OA001**: As an organization admin, I want to configure WhatsApp Business API so that patients can book appointments via WhatsApp
+- **US-OA002**: As an organization admin, I want to integrate my Google Sheets so that appointment data is stored in my own sheets
+- **US-OA003**: As an organization admin, I want to manage staff accounts so that I can control who has access to our system
+- **US-OA004**: As an organization admin, I want to view billing information so that I can track subscription costs
+- **US-OA005**: As an organization admin, I want to upgrade/downgrade my plan so that I can adjust to changing needs
+
+### 6.5 Super Admin Stories
+- **US-SA001**: As a super admin, I want to monitor platform performance so that I can ensure system reliability
+- **US-SA002**: As a super admin, I want to manage client subscriptions so that I can handle billing issues
+- **US-SA003**: As a super admin, I want to view system-wide analytics so that I can make strategic decisions
+- **US-SA004**: As a super admin, I want to provide technical support so that I can help clients resolve issues
+- **US-SA005**: As a super admin, I want to manage trial abuse prevention so that I can protect platform resources
+
 ## 7. Use Cases
 
 ### 7.1 Appointment Booking via WhatsApp
@@ -230,12 +294,16 @@ Google Sheets integration for decentralized data management.
 5. Patient selects preferred doctor
 6. System displays available time slots
 7. Patient selects preferred time
-8. System confirms appointment and sends confirmation
-9. System updates Google Sheet with new appointment
+8. System locks selected slot (atomic operation)
+9. System writes appointment to client's Google Sheet
+10. System confirms appointment and sends confirmation
+11. System releases slot lock and syncs to PostgreSQL
 
 **Extensions**:
 - 6a. No slots available: System offers alternative dates
-- 8a. Booking fails: System apologizes and suggests alternative
+- 8a. Slot becomes unavailable (conflict): System suggests next available slot automatically
+- 8b. Google Sheets write fails: System releases lock and notifies patient
+- 7a. Multiple family members: System asks which family member is booking for
 
 ### 7.2 Dashboard Appointment Management
 **Primary Actor**: Healthcare Provider  
@@ -248,6 +316,49 @@ Google Sheets integration for decentralized data management.
 4. Provider updates appointment status as needed
 5. System synchronizes changes to Google Sheet
 6. System sends notifications to patients if required
+
+### 7.3 Organization Registration and Setup
+**Primary Actor**: Organization Admin  
+**Goal**: Register new clinic and configure DrSync  
+**Preconditions**: Admin has clinic details and email access  
+**Main Success Scenario**:
+1. Admin visits DrSync signup page
+2. Admin fills registration form with clinic details
+3. System creates new organization and admin user
+4. System sends setup instructions via email
+5. Admin logs in using provided credentials
+6. System displays configuration wizard
+7. Admin configures WhatsApp Business API settings
+8. Admin authorizes Google Sheets integration
+9. System creates or connects to Google Sheets
+10. Admin invites staff members to join
+11. System sends staff invitation emails
+12. Organization setup is complete and trial begins
+
+**Extensions**:
+- 3a. Registration fails validation: System displays error messages
+- 7a. WhatsApp API credentials invalid: System shows configuration error
+- 8a. Google Sheets authorization fails: System provides troubleshooting steps
+- 9a. Sheets creation fails: System offers to retry or use existing sheets
+
+### 7.4 Subscription Management
+**Primary Actor**: Organization Admin  
+**Goal**: Manage organization subscription  
+**Preconditions**: Admin is logged into organization dashboard  
+**Main Success Scenario**:
+1. Admin navigates to billing section
+2. System displays current subscription details
+3. Admin selects plan upgrade/downgrade
+4. System calculates prorated charges
+5. Admin selects payment method (Payoneer/JazzCash/EasyPaisa/USDT)
+6. System processes payment
+7. System updates subscription and sends confirmation
+8. System adjusts organization features accordingly
+
+**Extensions**:
+- 6a. Payment fails: System provides alternative payment methods
+- 6b. Insufficient funds: System offers payment retry options
+- 7a. Subscription expires: System provides grace period with limited features
 
 ## 8. Acceptance Criteria
 
@@ -285,6 +396,22 @@ Google Sheets integration for decentralized data management.
 - [ ] Failover mechanisms tested
 - [ ] Backup and recovery procedures validated
 - [ ] Auto-scaling functionality verified
+
+### 8.6 SaaS Platform Management
+- [ ] Multi-tenant data isolation verified
+- [ ] Organization registration completes within 60 seconds
+- [ ] Setup emails delivered within 5 minutes
+- [ ] Configuration wizards guide users successfully
+- [ ] Staff invitation system works correctly
+- [ ] WhatsApp message routing accuracy is 100%
+
+### 8.7 Subscription and Billing
+- [ ] Payment processing works for all supported methods
+- [ ] Subscription upgrades/downgrades process correctly
+- [ ] Prorated charges calculated accurately
+- [ ] Invoice generation and delivery automated
+- [ ] Grace period functionality prevents data loss
+- [ ] Trial abuse prevention blocks duplicate registrations
 
 ---
 
