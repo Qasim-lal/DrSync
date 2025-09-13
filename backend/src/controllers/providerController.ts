@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { getPrismaClient } from '../services/prisma';
 import { asyncHandler } from '../middleware/errorHandler';
+import googleSheetsService from '../services/googleSheetsService';
 
 const prisma = getPrismaClient();
 
@@ -27,8 +28,10 @@ const createProviderSchema = z.object({
 const updateProviderSchema = createProviderSchema.partial();
 
 // GET /api/providers - Get all providers
+// GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
 export const getProviders = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const organizationId = req.user?.organizationId;
+  let dataSource = 'GOOGLE_SHEETS';
   
   if (!organizationId) {
     res.status(400).json({
@@ -50,67 +53,98 @@ export const getProviders = asyncHandler(async (req: Request, res: Response): Pr
   const limitNum = parseInt(limit as string);
   const offset = (pageNum - 1) * limitNum;
 
-  // Build filter conditions
-  const whereClause: any = {
-    organizationId,
-    ...(search && {
-      OR: [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
-        { specialization: { contains: search, mode: 'insensitive' } }
-      ]
-    }),
-    ...(specialization && { specialization: { contains: specialization, mode: 'insensitive' } }),
-    ...(isActive !== '' && { isActive: isActive === 'true' })
-  };
+  let providers: any[] = [];
+  let totalCount = 0;
 
+  // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
   try {
-    const [providers, totalCount] = await Promise.all([
-      prisma.provider.findMany({
-        where: whereClause,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-              isActive: true
+    console.log(`Reading providers from Google Sheets for organization ${organizationId}`);
+    
+    const sheetsData = await googleSheetsService.getProviders(organizationId, {
+      page: pageNum,
+      limit: limitNum,
+      ...(search && { search: search as string }),
+      ...(specialization && { specialization: specialization as string }),
+      ...(isActive === 'true' && { isActive: true }),
+      ...(isActive === 'false' && { isActive: false })
+    });
+
+    providers = sheetsData.providers || [];
+    totalCount = sheetsData.total || 0;
+    console.log(`Successfully read ${providers.length} providers from Google Sheets`);
+
+  } catch (error: any) {
+    console.warn('Failed to read providers from Google Sheets, falling back to PostgreSQL:', error);
+    dataSource = 'POSTGRESQL_FALLBACK';
+
+    // Fallback to PostgreSQL
+    const whereClause: any = {
+      organizationId,
+      ...(search && {
+        OR: [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { specialization: { contains: search, mode: 'insensitive' } }
+        ]
+      }),
+      ...(specialization && { specialization: { contains: specialization, mode: 'insensitive' } }),
+      ...(isActive !== '' && { isActive: isActive === 'true' })
+    };
+
+    try {
+      const [pgProviders, pgTotalCount] = await Promise.all([
+        prisma.provider.findMany({
+          where: whereClause,
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                role: true,
+                isActive: true
+              }
+            },
+            _count: {
+              select: {
+                appointments: true
+              }
             }
           },
-          _count: {
-            select: {
-              appointments: true
-            }
-          }
-        },
-        orderBy: [
-          { isActive: 'desc' },
-          { firstName: 'asc' },
-          { lastName: 'asc' }
-        ],
-        skip: offset,
-        take: limitNum
-      }),
-      prisma.provider.count({ where: whereClause })
-    ]);
+          orderBy: [
+            { isActive: 'desc' },
+            { firstName: 'asc' },
+            { lastName: 'asc' }
+          ],
+          skip: offset,
+          take: limitNum
+        }),
+        prisma.provider.count({ where: whereClause })
+      ]);
 
-    res.json({
-      success: true,
-      data: providers,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / limitNum)
-      }
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve providers',
-      error: error.message
-    });
+      providers = pgProviders;
+      totalCount = pgTotalCount;
+      console.log(`Fallback: Read ${providers.length} providers from PostgreSQL`);
+    } catch (pgError: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve providers from both data sources',
+        error: pgError.message
+      });
+      return;
+    }
   }
+
+  res.json({
+    success: true,
+    dataSource, // Indicate which data source was used
+    data: providers,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total: totalCount,
+      totalPages: Math.ceil(totalCount / limitNum)
+    }
+  });
 });
 
 // POST /api/providers - Create new provider
@@ -159,8 +193,35 @@ export const createProvider = asyncHandler(async (req: Request, res: Response): 
       workingHours: validatedData.workingHours || null,
     };
 
+    // Create provider in Google Sheets FIRST (PRIMARY DATA SOURCE)
+    const sheetsProviderData = {
+      firstName: validatedData.firstName,
+      lastName: validatedData.lastName,
+      ...(validatedData.title && { title: validatedData.title }),
+      specialization: validatedData.specialization,
+      consultationDuration: validatedData.consultationDuration,
+      ...(validatedData.consultationFee && { consultationFee: validatedData.consultationFee }),
+      ...(validatedData.workingHours && { workingHours: validatedData.workingHours }),
+      organizationId
+    };
+
+    const sheetsResult = await googleSheetsService.createProvider(sheetsProviderData);
+    
+    if (!sheetsResult.success) {
+      res.status(409).json({
+        success: false,
+        message: sheetsResult.message || 'Failed to create provider in Google Sheets'
+      });
+      return;
+    }
+
+    // Background sync to PostgreSQL for system operations
     const provider = await prisma.provider.create({
-      data: providerData,
+      data: {
+        ...providerData,
+        id: sheetsResult.providerId,
+        googleSheetsRowId: sheetsResult.providerId // Link to Google Sheets record
+      },
       include: {
         user: {
           select: {
@@ -176,11 +237,25 @@ export const createProvider = asyncHandler(async (req: Request, res: Response): 
           }
         }
       }
+    }).catch(async (error) => {
+      console.warn('PostgreSQL sync failed for provider creation, but Google Sheets write succeeded:', error);
+      // Return provider data even if PostgreSQL fails (Google Sheets is primary)
+      return {
+        id: sheetsResult.providerId,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName,
+        title: validatedData.title,
+        specialization: validatedData.specialization,
+        consultationDuration: validatedData.consultationDuration,
+        consultationFee: validatedData.consultationFee,
+        workingHours: validatedData.workingHours,
+        createdAt: new Date()
+      };
     });
 
     res.status(201).json({
       success: true,
-      message: 'Provider created successfully',
+      message: 'Provider created successfully in Google Sheets (primary data source)',
       data: provider
     });
   } catch (error: any) {
@@ -201,9 +276,11 @@ export const createProvider = asyncHandler(async (req: Request, res: Response): 
 });
 
 // GET /api/providers/:id - Get provider by ID
+// GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
 export const getProvider = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const organizationId = req.user?.organizationId;
+  let dataSource = 'GOOGLE_SHEETS';
 
   if (!organizationId || !id) {
     res.status(400).json({
@@ -213,73 +290,90 @@ export const getProvider = asyncHandler(async (req: Request, res: Response): Pro
     return;
   }
 
+  let provider: any = null;
+
+  // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
   try {
-    const provider = await prisma.provider.findFirst({
-      where: {
-        id,
-        organizationId
-      },
-    include: {
-      user: {
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          isActive: true,
-          firstName: true,
-          lastName: true,
-          phone: true,
-          avatar: true
-        }
-      },
-      appointments: {
+    console.log(`Reading single provider ${id} from Google Sheets`);
+    provider = await googleSheetsService.getProvider(organizationId, id);
+    console.log(`Successfully read provider ${id} from Google Sheets`);
+
+  } catch (error: any) {
+    console.warn(`Failed to read provider ${id} from Google Sheets, falling back to PostgreSQL:`, error);
+    dataSource = 'POSTGRESQL_FALLBACK';
+
+    // Fallback to PostgreSQL
+    try {
+      provider = await prisma.provider.findFirst({
         where: {
-          scheduledAt: {
-            gte: new Date()
+          id,
+          organizationId
+        },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isActive: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            avatar: true
           }
         },
-        take: 10,
-        orderBy: {
-          scheduledAt: 'asc'
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true
+        appointments: {
+          where: {
+            scheduledAt: {
+              gte: new Date()
+            }
+          },
+          take: 10,
+          orderBy: {
+            scheduledAt: 'asc'
+          },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true
+              }
             }
           }
-        }
-      },
-      _count: {
-        select: {
-          appointments: true
+        },
+        _count: {
+          select: {
+            appointments: true
+          }
         }
       }
-    }
-    });
-
-    if (!provider) {
-      res.status(404).json({
+      });
+      console.log(`Fallback: Read provider ${id} from PostgreSQL`);
+    } catch (pgError: any) {
+      res.status(500).json({
         success: false,
-        message: 'Provider not found'
+        message: 'Failed to retrieve provider from both data sources',
+        error: pgError.message
       });
       return;
     }
-
-    res.json({
-      success: true,
-      data: provider
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: 'Failed to retrieve provider',
-      error: error.message
-    });
   }
+
+  if (!provider) {
+    res.status(404).json({
+      success: false,
+      message: 'Provider not found'
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    dataSource, // Indicate which data source was used
+    data: provider
+  });
 });
 
 // PUT /api/providers/:id - Update provider

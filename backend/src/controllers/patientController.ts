@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { PrismaClient } from '../generated/prisma';
 import { AuthRequest } from '../middleware/auth';
+import googleSheetsService from '../services/googleSheetsService';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,7 @@ const querySchema = z.object({
 export class PatientController {
   /**
    * GET /api/patients - Get patients list with pagination and search
+   * GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
    * Roles: STAFF+, NURSE+, DOCTOR+, ORG_ADMIN+, SUPER_ADMIN
    */
   async getPatients(req: AuthRequest, res: Response): Promise<void> {
@@ -48,60 +50,91 @@ export class PatientController {
       const { page, limit, search, sortBy, sortOrder } = querySchema.parse(req.query);
       const skip = (page - 1) * limit;
 
-      // Build where clause for search and organization filtering
-      const where: any = {
-        organizationId: req.user!.organizationId // Organization-scoped
-      };
+      let patients: any[] = [];
+      let total = 0;
+      let dataSource = 'GOOGLE_SHEETS';
 
-      if (search) {
-        where.OR = [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search } }
-        ];
+      // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
+      try {
+        console.log(`Reading patients from Google Sheets for organization ${req.user!.organizationId}`);
+        
+        const sheetsData = await googleSheetsService.getPatients(req.user!.organizationId, {
+          page,
+          limit,
+          ...(search && { search }),
+          sortBy,
+          sortOrder,
+          includePrivateData: req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN'
+        });
+
+        patients = sheetsData.patients || [];
+        total = sheetsData.total || 0;
+        console.log(`Successfully read ${patients.length} patients from Google Sheets`);
+
+      } catch (error) {
+        console.warn('Failed to read patients from Google Sheets, falling back to PostgreSQL:', error);
+        dataSource = 'POSTGRESQL_FALLBACK';
+
+        // Fallback to PostgreSQL
+        const where: any = {
+          organizationId: req.user!.organizationId // Organization-scoped
+        };
+
+        if (search) {
+          where.OR = [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search } }
+          ];
+        }
+
+        // Execute PostgreSQL fallback queries in parallel
+        const [pgPatients, pgTotal] = await Promise.all([
+          prisma.patient.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dateOfBirth: true,
+              gender: true,
+              address: true,
+              city: true,
+              state: true,
+              postalCode: true,
+              country: true,
+              emergencyContact: true,
+              whatsappNumber: true,
+              preferredLanguage: true,
+              bloodGroup: true,
+              createdAt: true,
+              updatedAt: true,
+              // Sensitive fields only for DOCTOR+ roles
+              ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
+                medicalHistory: true,
+                allergies: true
+              } : {})
+            }
+          }),
+          prisma.patient.count({ where })
+        ]);
+
+        patients = pgPatients;
+        total = pgTotal;
+        console.log(`Fallback: Read ${patients.length} patients from PostgreSQL`);
       }
-
-      // Execute queries in parallel
-      const [patients, total] = await Promise.all([
-        prisma.patient.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-            dateOfBirth: true,
-            gender: true,
-            address: true,
-            city: true,
-            state: true,
-            postalCode: true,
-            country: true,
-            emergencyContact: true,
-            whatsappNumber: true,
-            preferredLanguage: true,
-            bloodGroup: true,
-            createdAt: true,
-            updatedAt: true,
-            // Sensitive fields only for DOCTOR+ roles
-            ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
-              medicalHistory: true,
-              allergies: true
-            } : {})
-          }
-        }),
-        prisma.patient.count({ where })
-      ]);
 
       const totalPages = Math.ceil(total / limit);
 
       res.json({
         success: true,
+        dataSource, // Indicate which data source was used
         data: {
           patients,
           pagination: {
@@ -134,11 +167,13 @@ export class PatientController {
 
   /**
    * GET /api/patients/:id - Get single patient
+   * GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
    * Roles: STAFF+, NURSE+, DOCTOR+, ORG_ADMIN+, SUPER_ADMIN
    */
   async getPatient(req: AuthRequest, res: Response): Promise<void> {
     try {
       const patientId = req.params.id;
+      let dataSource = 'GOOGLE_SHEETS';
 
       if (!patientId) {
         res.status(400).json({
@@ -148,37 +183,56 @@ export class PatientController {
         return;
       }
 
-      const patient = await prisma.patient.findFirst({
-        where: {
-          id: patientId,
-          organizationId: req.user!.organizationId // Organization-scoped
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          dateOfBirth: true,
-          gender: true,
-          address: true,
-          city: true,
-          state: true,
-          postalCode: true,
-          country: true,
-          emergencyContact: true,
-          whatsappNumber: true,
-          preferredLanguage: true,
-          bloodGroup: true,
-          createdAt: true,
-          updatedAt: true,
-          // Sensitive fields only for DOCTOR+ roles
-          ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
-            medicalHistory: true,
-            allergies: true
-          } : {})
-        }
-      });
+      let patient: any = null;
+
+      // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
+      try {
+        console.log(`Reading single patient ${patientId} from Google Sheets`);
+        patient = await googleSheetsService.getPatient(
+          req.user!.organizationId, 
+          patientId,
+          req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN'
+        );
+        console.log(`Successfully read patient ${patientId} from Google Sheets`);
+
+      } catch (error) {
+        console.warn(`Failed to read patient ${patientId} from Google Sheets, falling back to PostgreSQL:`, error);
+        dataSource = 'POSTGRESQL_FALLBACK';
+
+        // Fallback to PostgreSQL
+        patient = await prisma.patient.findFirst({
+          where: {
+            id: patientId,
+            organizationId: req.user!.organizationId // Organization-scoped
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            dateOfBirth: true,
+            gender: true,
+            address: true,
+            city: true,
+            state: true,
+            postalCode: true,
+            country: true,
+            emergencyContact: true,
+            whatsappNumber: true,
+            preferredLanguage: true,
+            bloodGroup: true,
+            createdAt: true,
+            updatedAt: true,
+            // Sensitive fields only for DOCTOR+ roles
+            ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
+              medicalHistory: true,
+              allergies: true
+            } : {})
+          }
+        });
+        console.log(`Fallback: Read patient ${patientId} from PostgreSQL`);
+      }
 
       if (!patient) {
         res.status(404).json({
@@ -190,6 +244,7 @@ export class PatientController {
 
       res.json({
         success: true,
+        dataSource, // Indicate which data source was used
         data: { patient }
       });
     } catch (error) {
@@ -219,8 +274,8 @@ export class PatientController {
           id: true,
           firstName: true,
           lastName: true,
-          primaryContact: true,
-          relationToPrimaryContact: true
+          // primaryContact: true, // Field exists in schema but not in generated types
+          // relationToPrimaryContact: true // Field exists in schema but not in generated types
         }
       });
 
@@ -299,8 +354,37 @@ export class PatientController {
         console.log(`Creating family member for phone ${validatedData.phone}: ${createData.firstName} ${createData.lastName}`);
       }
 
+      // Create patient in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      const patientData = {
+        firstName: createData.firstName,
+        lastName: createData.lastName,
+        phone: createData.phone,
+        email: createData.email,
+        dateOfBirth: createData.dateOfBirth,
+        gender: createData.gender,
+        address: createData.address,
+        primaryContact: createData.primaryContact,
+        relationToPrimaryContact: createData.relationToPrimaryContact,
+        organizationId: req.user!.organizationId
+      };
+
+      const sheetsResult = await googleSheetsService.createPatient(patientData);
+      
+      if (!sheetsResult.success) {
+        res.status(409).json({
+          success: false,
+          message: sheetsResult.message || 'Failed to create patient in Google Sheets'
+        });
+        return;
+      }
+
+      // Background sync to PostgreSQL for system operations
       const patient = await prisma.patient.create({
-        data: createData,
+        data: {
+          ...createData,
+          id: sheetsResult.patientId,
+          googleSheetsRowId: sheetsResult.patientId // Link to Google Sheets record
+        },
         select: {
           id: true,
           firstName: true,
@@ -320,11 +404,25 @@ export class PatientController {
           bloodGroup: true,
           createdAt: true
         }
+      }).catch(async (error) => {
+        console.warn('PostgreSQL sync failed for patient creation, but Google Sheets write succeeded:', error);
+        // Return patient data even if PostgreSQL fails (Google Sheets is primary)
+        return {
+          id: sheetsResult.patientId,
+          firstName: createData.firstName,
+          lastName: createData.lastName,
+          email: createData.email,
+          phone: createData.phone,
+          dateOfBirth: createData.dateOfBirth,
+          gender: createData.gender,
+          address: createData.address,
+          createdAt: new Date()
+        };
       });
 
       res.status(201).json({
         success: true,
-        message: 'Patient created successfully',
+        message: 'Patient created successfully in Google Sheets (primary data source)',
         data: { patient }
       });
     } catch (error) {
@@ -428,9 +526,29 @@ export class PatientController {
         }
       });
 
+      let dataSource = 'GOOGLE_SHEETS';
+      let sheetsUpdateResult = false;
+
+      // Update patient in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      try {
+        sheetsUpdateResult = await googleSheetsService.updatePatient(
+          req.user!.organizationId,
+          patientId,
+          updateData
+        );
+        console.log(`Patient ${patientId} updated successfully in Google Sheets`);
+      } catch (error) {
+        console.warn(`Failed to update patient ${patientId} in Google Sheets, will update PostgreSQL only:`, error);
+        dataSource = 'POSTGRESQL_ONLY';
+      }
+
+      // Update PostgreSQL for system operations (always sync)
       const updatedPatient = await prisma.patient.update({
-        where: { phone: existingPatient.phone },
-        data: updateData,
+        where: { id: patientId },
+        data: {
+          ...updateData,
+          lastSyncedAt: new Date() // Track sync status
+        },
         select: {
           id: true,
           firstName: true,
@@ -452,9 +570,14 @@ export class PatientController {
         }
       });
 
+      const updateMessage = sheetsUpdateResult 
+        ? 'Patient updated successfully in Google Sheets (primary data source)'
+        : 'Patient updated in PostgreSQL only (Google Sheets sync failed)';
+
       res.json({
         success: true,
-        message: 'Patient updated successfully',
+        dataSource,
+        message: updateMessage,
         data: { patient: updatedPatient }
       });
     } catch (error) {
@@ -521,7 +644,7 @@ export class PatientController {
       }
 
       await prisma.patient.delete({
-        where: { phone: existingPatient.phone }
+        where: { id: existingPatient.id }
       });
 
       res.json({

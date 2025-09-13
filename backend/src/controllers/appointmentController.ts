@@ -1,9 +1,11 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 import { PrismaClient } from '../generated/prisma';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { AppointmentService } from '../services/appointmentService';
+import googleSheetsService from '../services/googleSheetsService';
 
 const prisma = new PrismaClient();
 const appointmentService = new AppointmentService();
@@ -50,6 +52,7 @@ const querySchema = z.object({
 export class AppointmentController {
   /**
    * GET /api/appointments - Get appointments list with pagination, search, and filtering
+   * GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
    * Roles: STAFF+, NURSE+, DOCTOR+, ORG_ADMIN+, SUPER_ADMIN
    */
   async getAppointments(req: AuthRequest, res: Response): Promise<void> {
@@ -57,97 +60,132 @@ export class AppointmentController {
       const { page, limit, search, status, providerId, patientId, startDate, endDate, sortBy, sortOrder } = querySchema.parse(req.query);
       const skip = (page - 1) * limit;
 
-      // Build where clause for filtering and organization scoping
-      const where: any = {
-        organizationId: req.user!.organizationId // Organization-scoped
-      };
+      let appointments: any[] = [];
+      let total = 0;
+      let dataSource = 'GOOGLE_SHEETS';
 
-      // Status filtering
-      if (status) {
-        where.status = status;
-      }
+      // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
+      try {
+        logger.debug(`Reading appointments from Google Sheets for organization ${req.user!.organizationId}`);
+        
+        const sheetsData = await googleSheetsService.getAppointments(req.user!.organizationId, {
+          page,
+          limit,
+          ...(search && { search }),
+          ...(status && { status }),
+          ...(providerId && { providerId }),
+          ...(patientId && { patientId }),
+          ...(startDate && { startDate: new Date(startDate) }),
+          ...(endDate && { endDate: new Date(endDate) }),
+          sortBy,
+          sortOrder
+        });
 
-      // Provider filtering
-      if (providerId) {
-        where.providerId = providerId;
-      }
+        appointments = sheetsData.appointments || [];
+        total = sheetsData.total || 0;
+        logger.debug(`Successfully read ${appointments.length} appointments from Google Sheets`);
 
-      // Patient filtering
-      if (patientId) {
-        where.patientId = patientId;
-      }
+      } catch (error) {
+        logger.warn('Failed to read appointments from Google Sheets, falling back to PostgreSQL:', error);
+        dataSource = 'POSTGRESQL_FALLBACK';
 
-      // Date range filtering
-      if (startDate || endDate) {
-        where.scheduledAt = {};
-        if (startDate) {
-          where.scheduledAt.gte = new Date(startDate);
+        // Fallback to PostgreSQL
+        const where: any = {
+          organizationId: req.user!.organizationId // Organization-scoped
+        };
+
+        // Status filtering
+        if (status) {
+          where.status = status;
         }
-        if (endDate) {
-          where.scheduledAt.lte = new Date(endDate);
-        }
-      }
 
-      // Search functionality
-      if (search) {
-        where.OR = [
-          { title: { contains: search, mode: 'insensitive' } },
-          { description: { contains: search, mode: 'insensitive' } },
-          {
-            patient: {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } },
-                { phone: { contains: search } }
-              ]
-            }
-          },
-          {
-            provider: {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } }
-              ]
-            }
+        // Provider filtering
+        if (providerId) {
+          where.providerId = providerId;
+        }
+
+        // Patient filtering
+        if (patientId) {
+          where.patientId = patientId;
+        }
+
+        // Date range filtering
+        if (startDate || endDate) {
+          where.scheduledAt = {};
+          if (startDate) {
+            where.scheduledAt.gte = new Date(startDate);
           }
-        ];
-      }
+          if (endDate) {
+            where.scheduledAt.lte = new Date(endDate);
+          }
+        }
 
-      // Execute queries in parallel
-      const [appointments, total] = await Promise.all([
-        prisma.appointment.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { [sortBy]: sortOrder },
-          include: {
-            patient: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-                email: true
+        // Search functionality
+        if (search) {
+          where.OR = [
+            { title: { contains: search, mode: 'insensitive' } },
+            { description: { contains: search, mode: 'insensitive' } },
+            {
+              patient: {
+                OR: [
+                  { firstName: { contains: search, mode: 'insensitive' } },
+                  { lastName: { contains: search, mode: 'insensitive' } },
+                  { phone: { contains: search } }
+                ]
               }
             },
-            provider: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                title: true,
-                specialization: true
+            {
+              provider: {
+                OR: [
+                  { firstName: { contains: search, mode: 'insensitive' } },
+                  { lastName: { contains: search, mode: 'insensitive' } }
+                ]
               }
             }
-          }
-        }),
-        prisma.appointment.count({ where })
-      ]);
+          ];
+        }
+
+        // Execute PostgreSQL fallback queries in parallel
+        const [pgAppointments, pgTotal] = await Promise.all([
+          prisma.appointment.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { [sortBy]: sortOrder },
+            include: {
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                  email: true
+                }
+              },
+              provider: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  title: true,
+                  specialization: true
+                }
+              }
+            }
+          }),
+          prisma.appointment.count({ where })
+        ]);
+
+        appointments = pgAppointments;
+        total = pgTotal;
+        logger.debug(`Fallback: Read ${appointments.length} appointments from PostgreSQL`);
+      }
 
       const totalPages = Math.ceil(total / limit);
 
       res.json({
         success: true,
+        dataSource, // Indicate which data source was used
         data: {
           appointments,
           pagination: {
@@ -180,11 +218,13 @@ export class AppointmentController {
 
   /**
    * GET /api/appointments/:id - Get single appointment
+   * GOOGLE SHEETS PRIMARY: Reads from Google Sheets first, falls back to PostgreSQL
    * Roles: STAFF+, NURSE+, DOCTOR+, ORG_ADMIN+, SUPER_ADMIN
    */
   async getAppointment(req: AuthRequest, res: Response): Promise<void> {
     try {
       const appointmentId = req.params.id;
+      let dataSource = 'GOOGLE_SHEETS';
 
       if (!appointmentId) {
         res.status(400).json({
@@ -194,42 +234,57 @@ export class AppointmentController {
         return;
       }
 
-      const appointment = await prisma.appointment.findFirst({
-        where: {
-          id: appointmentId,
-          organizationId: req.user!.organizationId // Organization-scoped
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              email: true,
-              dateOfBirth: true,
-              gender: true,
-              // Medical info only for DOCTOR+ roles
-              ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
-                medicalHistory: true,
-                allergies: true,
-                bloodGroup: true
-              } : {})
-            }
+      let appointment: any = null;
+
+      // Try to read from Google Sheets first (PRIMARY DATA SOURCE)
+      try {
+        logger.debug(`Reading single appointment ${appointmentId} from Google Sheets`);
+        appointment = await googleSheetsService.getAppointment(req.user!.organizationId, appointmentId);
+        logger.debug(`Successfully read appointment ${appointmentId} from Google Sheets`);
+
+      } catch (error) {
+        logger.warn(`Failed to read appointment ${appointmentId} from Google Sheets, falling back to PostgreSQL:`, error);
+        dataSource = 'POSTGRESQL_FALLBACK';
+
+        // Fallback to PostgreSQL
+        appointment = await prisma.appointment.findFirst({
+          where: {
+            id: appointmentId,
+            organizationId: req.user!.organizationId // Organization-scoped
           },
-          provider: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              title: true,
-              specialization: true,
-              consultationDuration: true,
-              consultationFee: true
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                email: true,
+                dateOfBirth: true,
+                gender: true,
+                // Medical info only for DOCTOR+ roles
+                ...(req.user!.role === 'DOCTOR' || req.user!.role === 'ORG_ADMIN' || req.user!.role === 'SUPER_ADMIN' ? {
+                  medicalHistory: true,
+                  allergies: true,
+                  bloodGroup: true
+                } : {})
+              }
+            },
+            provider: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                title: true,
+                specialization: true,
+                consultationDuration: true,
+                consultationFee: true
+              }
             }
           }
-        }
-      });
+        });
+        logger.debug(`Fallback: Read appointment ${appointmentId} from PostgreSQL`);
+      }
 
       if (!appointment) {
         res.status(404).json({
@@ -241,6 +296,7 @@ export class AppointmentController {
 
       res.json({
         success: true,
+        dataSource, // Indicate which data source was used
         data: { appointment }
       });
     } catch (error) {
@@ -314,11 +370,36 @@ export class AppointmentController {
         return;
       }
 
-      // Create the appointment
+      // Create the appointment in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      const appointmentData = {
+        patientId: validatedData.patientId,
+        providerId: validatedData.providerId,
+        scheduledAt,
+        duration,
+        status: 'SCHEDULED',
+        ...(validatedData.title && { title: validatedData.title }),
+        ...(validatedData.description && { description: validatedData.description }),
+        priority: validatedData.priority,
+        bookingSource: validatedData.bookingSource,
+        organizationId: req.user!.organizationId
+      };
+
+      const sheetsResult = await googleSheetsService.createAppointment(appointmentData);
+      
+      if (!sheetsResult.success) {
+        res.status(409).json({
+          success: false,
+          message: sheetsResult.message || 'Failed to create appointment in Google Sheets'
+        });
+        return;
+      }
+
+      // Background sync to PostgreSQL for system operations (reminders, etc.)
       const appointment = await prisma.appointment.create({
         data: {
-          title: validatedData.title || null,
-          description: validatedData.description || null,
+          id: sheetsResult.appointmentId || uuidv4(),
+          ...(validatedData.title && { title: validatedData.title }),
+          ...(validatedData.description && { description: validatedData.description }),
           scheduledAt,
           duration,
           endTime,
@@ -326,7 +407,8 @@ export class AppointmentController {
           providerId: validatedData.providerId,
           priority: validatedData.priority,
           bookingSource: validatedData.bookingSource,
-          organizationId: req.user!.organizationId
+          organizationId: req.user!.organizationId,
+          ...(sheetsResult.appointmentId && { googleSheetsRowId: sheetsResult.appointmentId })
         },
         include: {
           patient: {
@@ -348,13 +430,26 @@ export class AppointmentController {
             }
           }
         }
+      }).catch(async (error) => {
+        logger.warn('PostgreSQL sync failed for appointment creation, but Google Sheets write succeeded:', error);
+        // Return appointment data even if PostgreSQL fails (Google Sheets is primary)
+        return {
+          id: sheetsResult.appointmentId,
+          title: validatedData.title,
+          description: validatedData.description,
+          scheduledAt,
+          duration,
+          endTime,
+          patient: patient,
+          provider: provider
+        };
       });
 
-      logger.info(`Appointment created: ${appointment.id} for patient ${patient.firstName} ${patient.lastName} with ${provider.firstName} ${provider.lastName}`);
+      logger.info(`Appointment created in Google Sheets: ${appointment.id || sheetsResult.appointmentId} for patient ${patient.firstName} ${patient.lastName} with ${provider.firstName} ${provider.lastName}`);
 
       res.status(201).json({
         success: true,
-        message: 'Appointment created successfully',
+        message: 'Appointment created successfully in Google Sheets (primary data source)',
         data: { appointment }
       });
     } catch (error) {
@@ -479,6 +574,29 @@ export class AppointmentController {
         }
       }
 
+      // Validate status transitions
+      if (validatedData.status) {
+        const currentStatus = existingAppointment.status;
+        const newStatus = validatedData.status;
+        
+        // Prevent invalid status transitions
+        if (currentStatus === 'COMPLETED' && newStatus !== 'COMPLETED') {
+          res.status(400).json({
+            success: false,
+            message: 'Cannot change status of completed appointments'
+          });
+          return;
+        }
+        
+        if (currentStatus === 'CANCELLED' && newStatus === 'SCHEDULED') {
+          res.status(400).json({
+            success: false,
+            message: 'Cannot reschedule cancelled appointments. Create a new appointment instead.'
+          });
+          return;
+        }
+      }
+      
       // Prepare update data
       const updateData: any = {};
       
@@ -504,7 +622,29 @@ export class AppointmentController {
         updateData.endTime = new Date(scheduledAt.getTime() + validatedData.duration * 60000);
       }
 
-      // Update appointment
+      // Update appointment in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      let sheetsUpdateResult = false;
+      try {
+        const updatePromise = googleSheetsService.updateAppointment(
+          req.user!.organizationId,
+          appointmentId,
+          updateData
+        );
+        
+        if (updatePromise && typeof updatePromise.catch === 'function') {
+          sheetsUpdateResult = await updatePromise.catch((error) => {
+            logger.warn('Google Sheets update failed, falling back to PostgreSQL only:', error);
+            return false;
+          });
+        } else {
+          logger.warn('Google Sheets service not properly initialized, falling back to PostgreSQL only');
+        }
+      } catch (error) {
+        logger.warn('Google Sheets update failed, falling back to PostgreSQL only:', error);
+        sheetsUpdateResult = false;
+      }
+
+      // Update PostgreSQL for system operations (always sync)
       const appointment = await prisma.appointment.update({
         where: { id: appointmentId },
         data: updateData,
@@ -530,11 +670,15 @@ export class AppointmentController {
         }
       });
 
-      logger.info(`Appointment updated: ${appointment.id}`);
+      const updateMessage = sheetsUpdateResult 
+        ? 'Appointment updated successfully in Google Sheets (primary data source)'
+        : 'Appointment updated in PostgreSQL only (Google Sheets sync failed)';
+        
+      logger.info(`Appointment updated: ${appointment.id} - Sheets sync: ${sheetsUpdateResult}`);
 
       res.json({
         success: true,
-        message: 'Appointment updated successfully',
+        message: updateMessage,
         data: { appointment }
       });
     } catch (error) {
@@ -586,6 +730,37 @@ export class AppointmentController {
         });
         return;
       }
+      
+      // Prevent deleting completed appointments
+      if (existingAppointment.status === 'COMPLETED') {
+        res.status(400).json({
+          success: false,
+          message: 'Cannot cancel completed appointments'
+        });
+        return;
+      }
+
+      // Cancel appointment in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      let sheetsCancelResult = false;
+      try {
+        const cancelPromise = googleSheetsService.updateAppointment(
+          req.user!.organizationId,
+          appointmentId,
+          { status: 'CANCELLED' }
+        );
+        
+        if (cancelPromise && typeof cancelPromise.catch === 'function') {
+          sheetsCancelResult = await cancelPromise.catch((error) => {
+            logger.warn('Google Sheets cancel failed, falling back to PostgreSQL only:', error);
+            return false;
+          });
+        } else {
+          logger.warn('Google Sheets service not properly initialized, falling back to PostgreSQL only');
+        }
+      } catch (error) {
+        logger.warn('Google Sheets cancel failed, falling back to PostgreSQL only:', error);
+        sheetsCancelResult = false;
+      }
 
       // Soft delete by updating status to CANCELLED instead of hard delete
       const appointment = await prisma.appointment.update({
@@ -596,11 +771,15 @@ export class AppointmentController {
         }
       });
 
-      logger.info(`Appointment cancelled: ${appointment.id}`);
+      const cancelMessage = sheetsCancelResult 
+        ? 'Appointment cancelled successfully in Google Sheets (primary data source)'
+        : 'Appointment cancelled in PostgreSQL only (Google Sheets sync failed)';
+        
+      logger.info(`Appointment cancelled: ${appointment.id} - Sheets sync: ${sheetsCancelResult}`);
 
       res.json({
         success: true,
-        message: 'Appointment cancelled successfully',
+        message: cancelMessage,
         data: { appointment }
       });
     } catch (error) {
@@ -651,16 +830,42 @@ export class AppointmentController {
         return;
       }
 
+      // Confirm appointment in Google Sheets FIRST (PRIMARY DATA SOURCE)
+      let sheetsConfirmResult = false;
+      try {
+        const confirmPromise = googleSheetsService.updateAppointment(
+          req.user!.organizationId,
+          appointmentId,
+          { status: 'CONFIRMED' }
+        );
+        
+        if (confirmPromise && typeof confirmPromise.catch === 'function') {
+          sheetsConfirmResult = await confirmPromise.catch((error) => {
+            logger.warn('Google Sheets confirm failed, falling back to PostgreSQL only:', error);
+            return false;
+          });
+        } else {
+          logger.warn('Google Sheets service not properly initialized, falling back to PostgreSQL only');
+        }
+      } catch (error) {
+        logger.warn('Google Sheets confirm failed, falling back to PostgreSQL only:', error);
+        sheetsConfirmResult = false;
+      }
+
       const updatedAppointment = await prisma.appointment.update({
         where: { id: appointmentId },
         data: { status: 'CONFIRMED' }
       });
 
-      logger.info(`Appointment confirmed: ${appointment.id}`);
+      const confirmMessage = sheetsConfirmResult 
+        ? 'Appointment confirmed successfully in Google Sheets (primary data source)'
+        : 'Appointment confirmed in PostgreSQL only (Google Sheets sync failed)';
+        
+      logger.info(`Appointment confirmed: ${appointment.id} - Sheets sync: ${sheetsConfirmResult}`);
 
       res.json({
         success: true,
-        message: 'Appointment confirmed successfully',
+        message: confirmMessage,
         data: { appointment: updatedAppointment }
       });
     } catch (error) {

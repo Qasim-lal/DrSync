@@ -67,6 +67,8 @@ model Organization {
   templates   MessageTemplate[]
   auditLogs   AuditLog[]
   billingHistory BillingHistory[]
+  billingRecords BillingRecord[]
+  systemMetrics SystemMetric[]
   
   @@map("organizations")
 }
@@ -121,6 +123,7 @@ model User {
   provider       Provider? @relation(fields: [providerId], references: [id])
   
   auditLogs      AuditLog[]
+  sessions       Session[]
   
   @@map("users")
 }
@@ -571,6 +574,60 @@ model TrialHistory {
   @@index([email])
   @@index([organizationName])
   @@map("trial_history")
+}
+
+// User session management
+model Session {
+  id        String   @id // Session token
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+// System metrics and monitoring
+model SystemMetric {
+  id             String   @id @default(cuid())
+  timestamp      DateTime @default(now())
+  organizationId String
+  metric         String   // Metric name
+  value          Float    // Metric value
+  unit           String   // Metric unit (ms, count, bytes, etc.)
+  tags           Json?    // Additional metric tags
+  
+  createdAt DateTime @default(now())
+  
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId, metric, timestamp])
+  @@map("system_metrics")
+}
+
+// Billing records (compatible with systemOperationsService)
+model BillingRecord {
+  id                String   @id @default(cuid())
+  organizationId    String
+  subscriptionTier  String   // BASIC, PROFESSIONAL, ENTERPRISE
+  billingCycle      String   // MONTHLY, YEARLY
+  amount            Decimal  @db.Decimal(10, 2)
+  currency          String   // USD, PKR
+  status            String   // PENDING, PAID, FAILED, REFUNDED
+  periodStart       DateTime
+  periodEnd         DateTime
+  dueDate           DateTime
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+  
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId, status])
+  @@map("billing_records")
 }
 
 // Subscription billing history

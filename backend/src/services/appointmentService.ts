@@ -1,5 +1,7 @@
 import { PrismaClient } from '../generated/prisma';
 import { logger } from '../utils/logger';
+import googleSheetsService from './googleSheetsService';
+// import sheetsSyncService from './sheetsSyncService';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +41,19 @@ export class AppointmentService {
     try {
       const opts = { ...this.defaultSchedulingOptions, ...options };
       const { providerId, organizationId, date, duration = 30 } = request;
+      
+      // Validate duration
+      if (duration <= 0) {
+        logger.debug(`Invalid duration: ${duration}. Must be greater than 0.`);
+        return [];
+      }
+      
+      // Check weekend restriction
+      const dayOfWeek = date.getDay();
+      if (!opts.allowWeekends && (dayOfWeek === 0 || dayOfWeek === 6)) {
+        logger.debug('Weekend appointments not allowed');
+        return [];
+      }
 
       // Get provider with working hours
       const provider = await prisma.provider.findFirst({
@@ -60,29 +75,46 @@ export class AppointmentService {
         return []; // No working hours for this day
       }
 
-      // Get existing appointments for the date
+      // Get existing appointments for the date - READ FROM GOOGLE SHEETS FIRST
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
 
-      const existingAppointments = await prisma.appointment.findMany({
-        where: {
-          providerId,
-          organizationId,
-          scheduledAt: {
-            gte: startOfDay,
-            lte: endOfDay
+      let existingAppointments: any[] = [];
+      
+      try {
+        // Try to read from Google Sheets first (primary data source)
+        existingAppointments = await this.getAppointmentsFromGoogleSheets(
+          organizationId, 
+          providerId, 
+          startOfDay, 
+          endOfDay
+        );
+        logger.debug(`Read ${existingAppointments.length} appointments from Google Sheets for provider ${providerId}`);
+      } catch (error) {
+        logger.warn('Failed to read appointments from Google Sheets, falling back to PostgreSQL:', error);
+        
+        // Fallback to PostgreSQL if Google Sheets fails
+        existingAppointments = await prisma.appointment.findMany({
+          where: {
+            providerId,
+            organizationId,
+            scheduledAt: {
+              gte: startOfDay,
+              lte: endOfDay
+            },
+            status: {
+              in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS']
+            }
           },
-          status: {
-            in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS']
+          orderBy: {
+            scheduledAt: 'asc'
           }
-        },
-        orderBy: {
-          scheduledAt: 'asc'
-        }
-      });
+        });
+        logger.debug(`Fallback: Read ${existingAppointments.length} appointments from PostgreSQL for provider ${providerId}`);
+      }
 
       // Generate time slots
       const slots: TimeSlot[] = [];
@@ -171,32 +203,50 @@ export class AppointmentService {
     endDate: Date
   ): Promise<any[]> {
     try {
-      const appointments = await prisma.appointment.findMany({
-        where: {
-          providerId,
+      let appointments: any[] = [];
+      
+      try {
+        // Try to read from Google Sheets first (primary data source)
+        appointments = await this.getAppointmentsFromGoogleSheets(
           organizationId,
-          scheduledAt: {
-            gte: startDate,
-            lte: endDate
-          },
-          status: {
-            not: 'CANCELLED'
-          }
-        },
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              phone: true
+          providerId,
+          startDate,
+          endDate,
+          { excludeCancelled: true, includePatientDetails: true }
+        );
+        logger.debug(`Read provider schedule from Google Sheets: ${appointments.length} appointments`);
+      } catch (error) {
+        logger.warn('Failed to read provider schedule from Google Sheets, falling back to PostgreSQL:', error);
+        
+        // Fallback to PostgreSQL if Google Sheets fails
+        appointments = await prisma.appointment.findMany({
+          where: {
+            providerId,
+            organizationId,
+            scheduledAt: {
+              gte: startDate,
+              lte: endDate
+            },
+            status: {
+              not: 'CANCELLED'
             }
+          },
+          include: {
+            patient: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true
+              }
+            }
+          },
+          orderBy: {
+            scheduledAt: 'asc'
           }
-        },
-        orderBy: {
-          scheduledAt: 'asc'
-        }
-      });
+        });
+        logger.debug(`Fallback: Read provider schedule from PostgreSQL: ${appointments.length} appointments`);
+      }
 
       return appointments;
     } catch (error) {
@@ -262,15 +312,40 @@ export class AppointmentService {
 
     const periods: { start: Date; end: Date }[] = [];
     
-      for (const timeRange of daySchedule) {
-        if (typeof timeRange === 'string' && timeRange.includes('-')) {
-          const [startTime, endTime] = timeRange.split('-');
-          const start = startTime ? this.parseTimeString(startTime, date) : null;
-          const end = endTime ? this.parseTimeString(endTime, date) : null;
+    // Handle array of time strings (e.g., ['09:00', '12:00', '14:00', '17:00'])
+    // Only process as pairs if no time range strings are present
+    const hasTimeRanges = daySchedule.some((time: string) => typeof time === 'string' && time.includes('-'));
+    
+    if (!hasTimeRanges && daySchedule.length % 2 === 0) {
+      for (let i = 0; i < daySchedule.length; i += 2) {
+        const startTime = daySchedule[i];
+        const endTime = daySchedule[i + 1];
         
-        if (start && end && start < end) {
-          periods.push({ start, end });
+        const start = this.parseTimeString(startTime, date);
+        const end = this.parseTimeString(endTime, date);
+        
+        // If any time parsing fails, return empty array for the whole day
+        if (!start || !end || start >= end) {
+          return [];
         }
+        
+        periods.push({ start, end });
+      }
+    }
+    
+    // Also handle single time range strings (e.g., ['09:00-17:00'])
+    for (const timeRange of daySchedule) {
+      if (typeof timeRange === 'string' && timeRange.includes('-')) {
+        const [startTime, endTime] = timeRange.split('-');
+        const start = startTime ? this.parseTimeString(startTime.trim(), date) : null;
+        const end = endTime ? this.parseTimeString(endTime.trim(), date) : null;
+        
+        // If any time parsing fails, return empty array for the whole day
+        if (!start || !end || start >= end) {
+          return [];
+        }
+        
+        periods.push({ start, end });
       }
     }
 
@@ -334,37 +409,65 @@ export class AppointmentService {
     endDate: Date
   ): Promise<any> {
     try {
-      const [totalAppointments, statusStats] = await Promise.all([
-        prisma.appointment.count({
-          where: {
-            providerId,
-            organizationId,
-            scheduledAt: {
-              gte: startDate,
-              lte: endDate
+      let totalAppointments = 0;
+      let statusCounts: Record<string, number> = {};
+      
+      try {
+        // Try to calculate stats from Google Sheets first (primary data source)
+        const appointments = await this.getAppointmentsFromGoogleSheets(
+          organizationId,
+          providerId,
+          startDate,
+          endDate
+        );
+        
+        totalAppointments = appointments.length;
+        statusCounts = appointments.reduce((acc: Record<string, number>, appointment: any) => {
+          const status = appointment.status || 'SCHEDULED';
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        }, {});
+        
+        logger.debug(`Calculated appointment stats from Google Sheets: ${totalAppointments} total appointments`);
+      } catch (error) {
+        logger.warn('Failed to calculate stats from Google Sheets, falling back to PostgreSQL:', error);
+        
+        // Fallback to PostgreSQL if Google Sheets fails
+        const [pgTotalAppointments, pgStatusStats] = await Promise.all([
+          prisma.appointment.count({
+            where: {
+              providerId,
+              organizationId,
+              scheduledAt: {
+                gte: startDate,
+                lte: endDate
+              }
             }
-          }
-        }),
-        prisma.appointment.groupBy({
-          by: ['status'],
-          where: {
-            providerId,
-            organizationId,
-            scheduledAt: {
-              gte: startDate,
-              lte: endDate
+          }),
+          prisma.appointment.groupBy({
+            by: ['status'],
+            where: {
+              providerId,
+              organizationId,
+              scheduledAt: {
+                gte: startDate,
+                lte: endDate
+              }
+            },
+            _count: {
+              id: true
             }
-          },
-          _count: {
-            id: true
-          }
-        })
-      ]);
-
-      const statusCounts = statusStats.reduce((acc, stat) => {
-        acc[stat.status] = stat._count.id;
-        return acc;
-      }, {} as Record<string, number>);
+          })
+        ]);
+        
+        totalAppointments = pgTotalAppointments;
+        statusCounts = pgStatusStats.reduce((acc, stat) => {
+          acc[stat.status] = stat._count.id;
+          return acc;
+        }, {} as Record<string, number>);
+        
+        logger.debug(`Fallback: Calculated appointment stats from PostgreSQL: ${totalAppointments} total appointments`);
+      }
 
       return {
         totalAppointments,
@@ -378,6 +481,48 @@ export class AppointmentService {
       };
     } catch (error) {
       logger.error('Error getting appointment stats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to read appointments from Google Sheets
+   * This method encapsulates the Google Sheets reading logic for reuse across methods
+   */
+  private async getAppointmentsFromGoogleSheets(
+    organizationId: string,
+    providerId: string,
+    startDate: Date,
+    endDate: Date,
+    _options?: {
+      excludeCancelled?: boolean;
+      includePatientDetails?: boolean;
+      statusFilter?: string[];
+    }
+  ): Promise<any[]> {
+    try {
+      // Initialize Google Sheets service for this organization
+      await googleSheetsService.initializeClientCredentials(organizationId);
+      
+      // Get sheet structure
+      await googleSheetsService.getSheetStructure(organizationId);
+      
+      // This is a placeholder for the actual Google Sheets reading implementation
+      // In a real implementation, this would:
+      // 1. Read from the appropriate Google Sheets tab/sheet (Appointments)
+      // 2. Filter by providerId, date range
+      // 3. Parse the data into appointment objects
+      // 4. Apply status filters and other options
+      
+      // For now, return empty array and let it fallback to PostgreSQL
+      // The actual implementation would involve Google Sheets API calls
+      logger.debug(`Reading appointments from Google Sheets for provider ${providerId} (${startDate.toISOString()} to ${endDate.toISOString()})`);
+      
+      // Mock implementation - replace with actual Google Sheets API calls
+      throw new Error('Google Sheets reading not yet fully implemented - using PostgreSQL fallback');
+      
+    } catch (error) {
+      logger.debug('Google Sheets read operation failed, will use PostgreSQL fallback:', error);
       throw error;
     }
   }
