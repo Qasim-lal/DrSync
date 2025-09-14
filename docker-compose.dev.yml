@@ -56,6 +56,7 @@ services:
       DB_NAME: drsync_dev
       DB_USER: drsync_user
       DB_PASSWORD: drsync_password_dev
+      DATABASE_URL: postgresql://drsync_user:drsync_password_dev@postgres:5432/drsync_dev
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: drsync_redis_password

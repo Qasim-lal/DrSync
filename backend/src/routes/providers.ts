@@ -1,56 +1,61 @@
-import { Router, Request, Response } from 'express';
-import { asyncHandler } from '../middleware/errorHandler';
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth';
+import { authorize } from '../utils/roleUtils';
+import {
+  getProviders,
+  createProvider,
+  getProvider,
+  updateProvider,
+  deleteProvider,
+  getProviderAvailability,
+  getProviderAnalytics
+} from '../controllers/providerController';
 
 const router = Router();
 
-// GET /api/providers
-router.get('/', asyncHandler(async (_req: Request, res: Response) => {
-  res.status(501).json({
-    success: false,
-    message: 'Provider management endpoints not implemented yet',
-    endpoint: 'GET /api/providers',
-    status: 'Coming in Phase 2 - Backend API Development',
-  });
-}));
+// Apply authentication to all routes
+router.use(authenticate);
 
-// POST /api/providers
-router.post('/', asyncHandler(async (_req: Request, res: Response) => {
-  res.status(501).json({
-    success: false,
-    message: 'Provider management endpoints not implemented yet',
-    endpoint: 'POST /api/providers',
-    status: 'Coming in Phase 2 - Backend API Development',
-  });
-}));
+// GET /api/providers/analytics - Provider analytics (must be before /:id route)
+router.get('/analytics', 
+  authorize(['ORG_ADMIN', 'DOCTOR']),
+  getProviderAnalytics
+);
 
-// GET /api/providers/:id
-router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
-  res.status(501).json({
-    success: false,
-    message: 'Provider management endpoints not implemented yet',
-    endpoint: `GET /api/providers/${req.params.id}`,
-    status: 'Coming in Phase 2 - Backend API Development',
-  });
-}));
+// GET /api/providers - Get all providers
+router.get('/', 
+  authorize(['ORG_ADMIN', 'DOCTOR', 'NURSE', 'STAFF']),
+  getProviders
+);
 
-// PUT /api/providers/:id
-router.put('/:id', asyncHandler(async (req: Request, res: Response) => {
-  res.status(501).json({
-    success: false,
-    message: 'Provider management endpoints not implemented yet',
-    endpoint: `PUT /api/providers/${req.params.id}`,
-    status: 'Coming in Phase 2 - Backend API Development',
-  });
-}));
+// POST /api/providers - Create new provider
+router.post('/', 
+  authorize(['ORG_ADMIN']),
+  createProvider
+);
 
-// DELETE /api/providers/:id
-router.delete('/:id', asyncHandler(async (req: Request, res: Response) => {
-  res.status(501).json({
-    success: false,
-    message: 'Provider management endpoints not implemented yet',
-    endpoint: `DELETE /api/providers/${req.params.id}`,
-    status: 'Coming in Phase 2 - Backend API Development',
-  });
-}));
+// GET /api/providers/:id - Get provider by ID
+router.get('/:id', 
+  authorize(['ORG_ADMIN', 'DOCTOR', 'NURSE', 'STAFF']),
+  getProvider
+);
+
+// PUT /api/providers/:id - Update provider
+router.put('/:id', 
+  authorize(['ORG_ADMIN']),
+  updateProvider
+);
+
+// DELETE /api/providers/:id - Soft delete provider
+router.delete('/:id', 
+  authorize(['ORG_ADMIN']),
+  deleteProvider
+);
+
+// GET /api/providers/:id/availability - Get provider availability
+router.get('/:id/availability', 
+  authorize(['ORG_ADMIN', 'DOCTOR', 'NURSE', 'STAFF']),
+  getProviderAvailability
+);
 
 export default router;

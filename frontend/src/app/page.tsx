@@ -230,26 +230,32 @@ export default function HomePage() {
           <h2 className="text-2xl font-semibold text-gray-900 mb-6">
             Quick Links
           </h2>
-          <div className="flex flex-wrap justify-center gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
             <Link 
               href="http://localhost:3001/health"
               target="_blank"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              API Health Check
+              🩺 API Health Check
             </Link>
             <Link 
               href="http://localhost:3001/api/docs"
               target="_blank"
-              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              API Documentation
+              📚 API Documentation
+            </Link>
+            <Link 
+              href="/pwa-test"
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
+            >
+              🔧 PWA Test Page
             </Link>
             <Link 
               href="/dashboard"
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              Dashboard (Coming Soon)
+              📋 Dashboard
             </Link>
           </div>
         </div>

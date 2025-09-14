@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Proper PWA Icons</title>
+</head>
+<body>
+    <h1>DrSync PWA Icon Generator</h1>
+    <canvas id="canvas" width="512" height="512" style="border:1px solid #ccc;"></canvas>
+    <br><br>
+    <button onclick="generateAllIcons()">Generate All Icon Sizes</button>
+    
+    <script>
+        function createIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient (healthcare blue theme)
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#2563eb');
+            gradient.addColorStop(1, '#1d4ed8');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // White cross/plus symbol (healthcare symbol)
+            const crossSize = size * 0.4;
+            const crossThickness = size * 0.08;
+            const centerX = size / 2;
+            const centerY = size / 2;
+            
+            ctx.fillStyle = 'white';
+            
+            // Horizontal bar
+            ctx.fillRect(
+                centerX - crossSize / 2, 
+                centerY - crossThickness / 2, 
+                crossSize, 
+                crossThickness
+            );
+            
+            // Vertical bar  
+            ctx.fillRect(
+                centerX - crossThickness / 2, 
+                centerY - crossSize / 2, 
+                crossThickness, 
+                crossSize
+            );
+            
+            // Add small "Dr" text
+            if (size >= 192) {
+                ctx.fillStyle = 'white';
+                ctx.font = `bold ${size * 0.12}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText('Dr', centerX, size * 0.85);
+            }
+            
+            return canvas;
+        }
+        
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        function generateAllIcons() {
+            const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+            
+            sizes.forEach(size => {
+                const canvas = createIcon(size);
+                downloadCanvas(canvas, `icon-${size}x${size}.png`);
+            });
+            
+            // Create maskable icon (same design but with safe zone)
+            const maskableCanvas = createIcon(512);
+            downloadCanvas(maskableCanvas, 'maskable-icon-512x512.png');
+            
+            // Create shortcuts
+            ['new-appointment', 'search', 'today', 'whatsapp'].forEach(name => {
+                const canvas = createIcon(192);
+                downloadCanvas(canvas, `shortcut-${name}.png`);
+            });
+            
+            alert('All icons generated! Check your downloads folder and copy them to /frontend/public/icons/');
+        }
+        
+        // Preview main icon
+        window.onload = function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Draw preview
+            const previewCanvas = createIcon(512);
+            ctx.drawImage(previewCanvas, 0, 0);
+        }
+    </script>
+</body>
+</html>

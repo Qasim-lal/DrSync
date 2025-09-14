@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getDbPool } from '../config/database';
+import { isDatabaseConnected, getDatabaseStats } from '../services/prisma';
 import { getRedisClient } from '../config/redis';
 import { asyncHandler } from '../middleware/errorHandler';
 
@@ -35,11 +35,11 @@ router.get('/', asyncHandler(async (_req: Request, res: Response) => {
 
   // Check database connection
   try {
-    const pool = getDbPool();
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
-    healthCheck.services.database = 'connected';
+    const isConnected = await isDatabaseConnected();
+    healthCheck.services.database = isConnected ? 'connected' : 'error';
+    if (!isConnected) {
+      healthCheck.status = 'unhealthy';
+    }
   } catch (error) {
     healthCheck.services.database = 'error';
     healthCheck.status = 'unhealthy';
@@ -90,31 +90,17 @@ router.get('/detailed', asyncHandler(async (_req: Request, res: Response) => {
 
   // Database details
   try {
-    const pool = getDbPool();
-    const client = await pool.connect();
-    
-    const dbResult = await client.query('SELECT version(), now() as current_time');
-    const statsResult = await client.query(`
-      SELECT 
-        schemaname,
-        tablename,
-        n_tup_ins as inserts,
-        n_tup_upd as updates,
-        n_tup_del as deletes
-      FROM pg_stat_user_tables 
-      LIMIT 5
-    `);
-    
-    detailedHealth.services.database.details = {
-      version: dbResult.rows[0].version,
-      currentTime: dbResult.rows[0].current_time,
-      tableStats: statsResult.rows,
-      totalConnections: pool.totalCount,
-      idleConnections: pool.idleCount,
-      waitingClients: pool.waitingCount,
-    };
-    
-    client.release();
+    const isConnected = await isDatabaseConnected();
+    if (isConnected) {
+      const stats = await getDatabaseStats();
+      detailedHealth.services.database.details = {
+        connected: true,
+        statistics: stats,
+        timestamp: new Date().toISOString(),
+      };
+    } else {
+      throw new Error('Database not connected');
+    }
   } catch (error) {
     detailedHealth.services.database.status = 'error';
     detailedHealth.services.database.details = { error: (error as Error).message };
@@ -150,10 +136,10 @@ router.get('/detailed', asyncHandler(async (_req: Request, res: Response) => {
 router.get('/ready', asyncHandler(async (_req: Request, res: Response) => {
   try {
     // Check if all critical services are ready
-    const pool = getDbPool();
-    const client = await pool.connect();
-    await client.query('SELECT 1');
-    client.release();
+    const dbConnected = await isDatabaseConnected();
+    if (!dbConnected) {
+      throw new Error('Database not connected');
+    }
 
     const redisClient = getRedisClient();
     await redisClient.ping();
