@@ -1,16 +1,33 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import PWAProvider from '../components/pwa/PWAProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'DrSync - Healthcare Appointment Management',
-  description: 'Comprehensive healthcare appointment management solution with WhatsApp automation',
-  keywords: ['healthcare', 'appointments', 'whatsapp', 'medical', 'practice management'],
+  description: 'Comprehensive healthcare appointment management solution with WhatsApp automation and offline capabilities',
+  keywords: ['healthcare', 'appointments', 'whatsapp', 'medical', 'practice management', 'PWA', 'offline'],
   authors: [{ name: 'DrSync Team' }],
-  viewport: 'width=device-width, initial-scale=1',
   robots: 'index, follow',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'DrSync'
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-152x152.png'
+  }
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  userScalable: false,
+  themeColor: '#2563eb'
 };
 
 export default function RootLayout({
@@ -30,9 +47,11 @@ export default function RootLayout({
         className={`${inter.className} antialiased min-h-screen bg-gray-50`}
         suppressHydrationWarning
       >
-        <div id="root">
-          {children}
-        </div>
+        <PWAProvider>
+          <div id="root">
+            {children}
+          </div>
+        </PWAProvider>
       </body>
     </html>
   );
