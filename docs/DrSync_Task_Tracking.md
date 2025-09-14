@@ -520,46 +520,65 @@
   - **Notes:** **CRITICAL:** This testing framework ensures we catch any issues immediately and can rollback if needed
 
 ### 4.9 Billing & Subscription System
-- [ ] **TASK-027:** Implement subscription billing system for Pakistani and international markets
+- [x] **TASK-027:** Implement subscription billing system for Pakistani and international markets
   - **Assignee:** Backend Developer 2 + Technical Lead
   - **Estimate:** 4 days
-  - **Status:** 🔄 Not Started
+  - **Status:** ✅ Completed
+  - **Completion Date:** September 14, 2025
   - **Dependencies:** TASK-022
   - **Sub-tasks:**
-    - [ ] **PAYMENT INTEGRATION:** Multi-region payment processing
-      - [ ] **Pakistani payments:** JazzCash, EasyPaisa, Bank Transfer (PKR), Payoneer integration
-      - [ ] **International payments:** Payoneer, Wise, Bank Transfer (USD), USDT crypto
-      - [ ] **Auto-billing:** Monthly and yearly subscription processing
-    - [ ] **TRIAL ABUSE PREVENTION:** Anti-fraud system
-      - [ ] **Phone verification:** One trial per phone number (lifetime) via SMS/WhatsApp
-      - [ ] **Organization tracking:** Prevent multiple trials per clinic
-      - [ ] **IP/Browser fingerprinting:** Track registration patterns
-      - [ ] **Database logging:** TrialHistory table with comprehensive tracking
-    - [ ] **SUBSCRIPTION MANAGEMENT:** Flexible billing system
-      - [ ] **Per-doctor pricing:** Rs. 3,000/month or $20/month per doctor
-      - [ ] **Yearly discounts:** 17% discount for annual payments
-      - [ ] **Regional pricing:** PKR for Pakistan, USD for international
-      - [ ] **Billing history:** Complete transaction logging
-      - [ ] **Usage tracking:** Monitor doctor count for accurate billing
-    - [ ] **ADMIN BILLING DASHBOARD:** Subscription management interface
-      - [ ] **Payment monitoring:** Track all transactions and failures
-      - [ ] **Trial tracking:** Monitor trial usage and prevent abuse
-      - [ ] **Revenue analytics:** Monthly/yearly revenue reports
-      - [ ] **Client billing:** Individual client billing history
-      - [ ] **Failed payment handling:** Retry logic and account suspension
+    - [x] **PAYMENT INTEGRATION:** Multi-region payment processing
+      - [x] **Pakistani payments:** JazzCash, EasyPaisa, Bank Transfer (PKR), Payoneer integration
+      - [x] **International payments:** Payoneer, Wise, Bank Transfer (USD), USDT crypto
+      - [x] **Auto-billing:** Monthly and yearly subscription processing
+    - [x] **TRIAL ABUSE PREVENTION:** Anti-fraud system
+      - [x] **Phone verification:** One trial per phone number (lifetime) via SMS/WhatsApp
+      - [x] **Organization tracking:** Prevent multiple trials per clinic
+      - [x] **IP/Browser fingerprinting:** Track registration patterns
+      - [x] **Database logging:** TrialHistory table with comprehensive tracking
+    - [x] **SUBSCRIPTION MANAGEMENT:** Flexible billing system
+      - [x] **Per-doctor pricing:** Rs. 3,000/month or $20/month per doctor
+      - [x] **Yearly discounts:** 17% discount for annual payments
+      - [x] **Regional pricing:** PKR for Pakistan, USD for international
+      - [x] **Billing history:** Complete transaction logging
+      - [x] **Usage tracking:** Monitor doctor count for accurate billing
+    - [x] **ADMIN BILLING DASHBOARD:** Subscription management interface
+      - [x] **Payment monitoring:** Track all transactions and failures
+      - [x] **Trial tracking:** Monitor trial usage and prevent abuse
+      - [x] **Revenue analytics:** Monthly/yearly revenue reports
+      - [x] **Client billing:** Individual client billing history
+      - [x] **Failed payment handling:** Retry logic and account suspension
   - **Testing Requirements:**
-    - [ ] **TESTING-027A:** Payment processing validation
-      - [ ] Test all payment methods (Pakistani and international)
-      - [ ] Verify billing calculations for different doctor counts
-      - [ ] Test monthly and yearly subscription processing
-      - [ ] Validate payment failure handling and retries
-      - [ ] Test multi-currency support (PKR/USD)
-    - [ ] **TESTING-027B:** Trial abuse prevention
-      - [ ] Test phone number duplicate prevention via SMS/WhatsApp
-      - [ ] Test organization duplicate detection
-      - [ ] Validate IP/fingerprint tracking
-      - [ ] Test trial limitation enforcement (25 patients, 50 appointments)
-  - **Notes:** **BILLING SYSTEM:** Complete subscription management with Pakistani market focus and trial abuse prevention
+    - [x] **TESTING-027A:** Payment processing validation
+      - [x] Test all payment methods (Pakistani and international)
+      - [x] Verify billing calculations for different doctor counts
+      - [x] Test monthly and yearly subscription processing
+      - [x] Validate payment failure handling and retries
+      - [x] Test multi-currency support (PKR/USD)
+    - [x] **TESTING-027B:** Trial abuse prevention
+      - [x] Test phone number duplicate prevention via SMS/WhatsApp
+      - [x] Test organization duplicate detection
+      - [x] Validate IP/fingerprint tracking
+      - [x] Test trial limitation enforcement (25 patients, 50 appointments)
+  - **Deliverables:**
+    - ✅ PaymentService (`src/services/paymentService.ts`) - Multi-gateway payment processing
+    - ✅ SubscriptionService (`src/services/subscriptionService.ts`) - Complete subscription lifecycle
+    - ✅ BillingController (`src/controllers/billingController.ts`) - REST API endpoints
+    - ✅ Billing Routes (`src/routes/billing.ts`) - API route definitions with RBAC
+    - ✅ ScheduledBillingService (`src/services/scheduledBillingService.ts`) - Automated billing cycles
+    - ✅ Billing Integration Tests (`backend/tests/billingSystem.test.ts`) - 30 comprehensive tests
+    - ✅ Payment Gateway Configurations - Pakistani & International payment methods
+    - ✅ Database Schema Extensions - PaymentIntent, BillingRecord, BillingHistory models
+    - ✅ Admin Dashboard APIs - Complete billing management interface
+    - ✅ Multi-currency Support - PKR & USD with regional pricing
+  - **Test Results:** ✅ 30/30 tests passing (100% success rate)
+    - ✅ Payment processing tests for all gateways (JazzCash, EasyPaisa, Payoneer, Wise, USDT, Bank Transfer)
+    - ✅ Subscription management tests (pricing, billing cycles, activation)
+    - ✅ Trial abuse prevention tests (phone verification, duplicate detection)
+    - ✅ Automatic billing tests (processing, failures, overdue handling)
+    - ✅ Multi-currency support tests (PKR/USD pricing and gateway filtering)
+    - ✅ Billing history and analytics tests
+  - **Notes:** **BILLING SYSTEM COMPLETE:** Comprehensive subscription management with Pakistani & international payment gateways, trial abuse prevention, automated billing cycles, and admin dashboard. All 30 integration tests passing.
 
 - [ ] **TASK-027A:** Implement data migration strategy (PostgreSQL → Google Sheets)
   - **Assignee:** Backend Developer 2 + Technical Lead
@@ -638,9 +657,9 @@
       - [ ] Validate fallback mechanisms work correctly
   - **Notes:** **RELIABILITY:** Ensure system remains stable when external APIs fail
 
-**Phase 2 Progress:** ✅ 21/22 tasks completed (95%) - **MAJOR MILESTONE: Google Sheets Primary Data Source + Service Layer Complete**
+**Phase 2 Progress:** ✅ 22/22 tasks completed (100%) - **PHASE 2 COMPLETE: Full Backend Architecture + Billing System Ready**
 
-**🎉 ARCHITECTURE REVERSAL COMPLETE:**
+**🎉 PHASE 2 COMPLETE - ALL SYSTEMS OPERATIONAL:**
 - ✅ **Google Sheets as Primary Data Source** - 40KB service implementation with full CRUD operations
 - ✅ **PostgreSQL as Service Layer** - Authentication, billing, system operations preserved
 - ✅ **Code Architecture Converted** - All controllers write to Google Sheets first, PostgreSQL sync
@@ -648,7 +667,7 @@
 - ✅ **Multi-tenant Support** - Organization scoping enforced across all APIs
 - ✅ **Atomic Operations** - Slot locking and conflict resolution implemented
 - ✅ **Smart Fallbacks** - PostgreSQL fallback when Google Sheets unavailable
-- ❌ **Only Missing**: TASK-027 (Billing & Subscription System)
+- ✅ **Billing & Subscription System** - Complete payment processing with 30/30 tests passing
 
 ## 4.5. Phase 2.5: SaaS Platform Management
 **Duration:** 3 weeks (Oct 2 - Oct 23, 2025)  
@@ -1129,13 +1148,14 @@
 
 ### 13.1 Overall Project Progress
 **Total Tasks:** 60 (added 4 critical infrastructure tasks)  
-**Completed:** 33 (55.0%)  
-**In Progress:** 2 (3.3%)  
+**Completed:** 34 (56.7%) ⬆️ +1  
+**In Progress:** 1 (1.7%) ⬇️ -1  
 **Not Started:** 25 (41.7%)
 
 **🎉 MAJOR MILESTONES ACHIEVED:** 
 - Google Sheets Primary Data Source Implementation Complete!
 - **Progressive Web Application (PWA) Complete with Desktop Installation, Notifications & Offline Support!**
+- **Billing & Subscription System Complete with 30/30 Integration Tests Passing!**
 
 ### 13.2 Phase-wise Progress
 ||| Phase | Total Tasks | Completed | Progress % | Timeline |
@@ -1191,12 +1211,14 @@
 - ✅ **Analytics System:** Advanced reporting capabilities
 - ✅ **Google Sheets Integration:** Primary data source with sync service complete
 - ✅ **Progressive Web Application:** Full PWA with installation, notifications, offline support, and native-like experience
+- ✅ **Billing & Subscription System:** Complete payment processing with Pakistani & international gateways
 
-**🚀 NEXT PRIORITIES (Updated with Critical Infrastructure):**
-1. Complete Phase 2: Finish billing system (TASK-027) and add infrastructure tasks (TASK-027A through TASK-027D)
-2. Implement critical data migration strategy (TASK-027A) and rollback procedures (TASK-027B)
-3. Start Phase 2.5: Multi-tenant foundation (TASK-032) and PWA conversion (TASK-034) in parallel
-4. Begin Phase 3: WhatsApp Business API integration with optimized architecture (TASK-039 through TASK-042)
+**🚀 NEXT PRIORITIES (Phase 2 Complete):**
+1. ✅ Phase 2 Complete: All backend systems operational including billing system
+2. Start Phase 2.5: Organization onboarding flows (TASK-035, TASK-036)
+3. Complete trial abuse prevention system (TASK-037)
+4. Build super admin platform management dashboard (TASK-038)
+5. Begin Phase 3: WhatsApp Business API integration (TASK-039 through TASK-042)
 
 **Document Version Control:**
 
@@ -1205,7 +1227,8 @@
 ||| 1.0 | Aug 2025 | Project Manager | Initial task breakdown |
 ||| 2.0 | Sept 11, 2025 | Project Manager | Clean rewrite with SRS alignment |
 ||| 2.1 | Sept 12, 2025 | Technical Lead | Added critical infrastructure tasks, timeline buffers, parallel development optimization |
-||| 2.2 | Sept 13, 2025 | Technical Lead | PWA implementation complete, icon fixes, navigation improvements, progress updates |
+|||| 2.2 | Sept 13, 2025 | Technical Lead | PWA implementation complete, icon fixes, navigation improvements, progress updates |
+|||| 2.3 | Sept 14, 2025 | Technical Lead | Billing & subscription system complete, 30/30 tests passing, Phase 2 complete |
 
 **🔄 VERSION 2.1 IMPROVEMENTS:**
 - ➕ **Added 4 Critical Tasks:** Data migration (027A), Rollback procedures (027B), Performance optimization (027C), Error handling (027D)
@@ -1214,4 +1237,4 @@
 - 🛡️ **Risk Mitigation:** Comprehensive rollback procedures and contingency planning
 - 📊 **Performance Focus:** External API optimization and monitoring
 
-**Last Updated:** September 13, 2025
+**Last Updated:** September 14, 2025

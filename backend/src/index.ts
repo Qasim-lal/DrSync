@@ -3,6 +3,7 @@ import { app } from './app';
 import { logger } from './utils/logger';
 import { connectDatabase } from './services/prisma';
 import { connectRedis } from './config/redis';
+import ScheduledBillingService from './services/scheduledBillingService';
 
 // Load environment variables
 dotenv.config();
@@ -33,11 +34,19 @@ const startServer = async () => {
     await connectRedis();
     logger.info('Redis connected successfully');
 
+    // Start scheduled billing tasks
+    if (process.env.NODE_ENV !== 'test') {
+      logger.info('Starting scheduled billing tasks...');
+      ScheduledBillingService.startScheduledTasks();
+      logger.info('Scheduled billing tasks started successfully');
+    }
+
     // Start HTTP server
     app.listen(PORT, () => {
       logger.info(`🚀 DrSync Backend Server running on port ${PORT}`);
       logger.info(`📊 Health check: http://localhost:${PORT}/health`);
       logger.info(`📚 API docs: http://localhost:${PORT}/api/docs`);
+      logger.info(`💳 Billing API: http://localhost:${PORT}/api/billing`);
       logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (error) {

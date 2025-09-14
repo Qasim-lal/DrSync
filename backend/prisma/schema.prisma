@@ -68,6 +68,7 @@ model Organization {
   auditLogs   AuditLog[]
   billingHistory BillingHistory[]
   billingRecords BillingRecord[]
+  paymentIntents PaymentIntent[]
   systemMetrics SystemMetric[]
   
   @@map("organizations")
@@ -630,6 +631,41 @@ model BillingRecord {
   @@map("billing_records")
 }
 
+// Payment intents for tracking payment processing
+model PaymentIntent {
+  id               String   @id @default(cuid())
+  organizationId   String
+  amount           Decimal  @db.Decimal(10, 2)
+  currency         String   // "PKR" or "USD"
+  paymentMethod    String   // "JAZZCASH", "EASYPAISA", "PAYONEER", "WISE", "USDT"
+  status           String   // "PENDING", "PROCESSING", "SUCCESS", "FAILED", "CANCELLED"
+  
+  // External payment gateway details
+  gatewayIntentId  String?  // Payment gateway's intent/transaction ID
+  gatewayResponse  Json?    // Full gateway response for debugging
+  failureReason    String?  // Reason for payment failure
+  
+  // Billing details
+  billingPeriod    String   // "2025-09" for monthly, "2025" for yearly
+  subscriptionType String   // "MONTHLY" or "YEARLY"
+  doctorCount      Int      // Number of doctors being billed for
+  
+  // Retry logic
+  retryCount       Int      @default(0)
+  nextRetryAt      DateTime?
+  maxRetries       Int      @default(3)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId, status])
+  @@index([status, nextRetryAt])
+  @@map("payment_intents")
+}
+
 // Subscription billing history
 model BillingHistory {
   id              String   @id @default(cuid())
@@ -642,11 +678,15 @@ model BillingHistory {
   billingPeriod   String   // "2025-09" for monthly, "2025" for yearly
   doctorCount     Int      // Number of doctors billed for
   
+  // Link to payment intent
+  paymentIntentId String?
+  
   createdAt DateTime @default(now())
   
   // Relations
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   
   @@index([organizationId, billingPeriod])
+  @@index([paymentIntentId])
   @@map("billing_history")
 }

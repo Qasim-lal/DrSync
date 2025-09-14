@@ -18,6 +18,7 @@ import patientRoutes from './routes/patients';
 import appointmentRoutes from './routes/appointments';
 import providerRoutes from './routes/providers';
 import analyticsRoutes from './routes/analytics';
+import billingRoutes from './routes/billing';
 import rbacTestRoutes from './routes/rbac-test';
 
 // Load environment variables
@@ -71,6 +72,7 @@ app.get('/', (_req, res) => {
         appointments: '/api/appointments',
         providers: '/api/providers',
         analytics: '/api/analytics',
+        billing: '/api/billing',
       }
     },
     timestamp: new Date().toISOString(),
@@ -87,6 +89,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/providers', providerRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/billing', billingRoutes);
 app.use('/api/rbac-test', rbacTestRoutes);
 
 // API documentation
@@ -101,6 +104,7 @@ app.get('/api/docs', (_req, res) => {
       appointments: '/api/appointments',
       providers: '/api/providers',
       analytics: '/api/analytics',
+      billing: '/api/billing',
     },
     documentation: 'See /docs/DrSync_API_Documentation.md for detailed API documentation'
   });
