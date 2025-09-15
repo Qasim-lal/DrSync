@@ -21,6 +21,7 @@ model Organization {
   id          String   @id @default(cuid())
   name        String
   slug        String   @unique // URL-friendly identifier
+  organizationType OrganizationType @default(CLINIC) // Type of healthcare organization
   email       String   @unique
   phone       String?
   address     String?
@@ -55,6 +56,10 @@ model Organization {
   doctorCount         Int      @default(1)
   paymentMethod       String?  // "JAZZCASH", "EASYPAISA", "PAYONEER", "USDT", etc.
   
+  // Trial limits
+  maxPatients         Int?     // Maximum patients allowed (for trial/plan limits)
+  maxAppointments     Int?     // Maximum appointments allowed (for trial/plan limits)
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -87,6 +92,15 @@ enum SubscriptionStatus {
   PAST_DUE
   CANCELLED
   SUSPENDED
+}
+
+enum OrganizationType {
+  CLINIC        // Multi-doctor healthcare facility
+  DOCTOR        // Individual doctor practice
+  HOSPITAL      // Large healthcare institution
+  SPECIALIST    // Specialist doctor practice
+  PHARMACY      // Pharmacy/dispensary
+  DIAGNOSTIC    // Diagnostic center/lab
 }
 
 // User accounts for healthcare providers and staff

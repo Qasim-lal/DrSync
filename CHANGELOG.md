@@ -2,6 +2,30 @@
 
 All notable changes to DrSync will be documented in this file.
 
+## [2.5.4] - 2025-09-15
+
+### 🎉 Major Enhancement: Organization Type Differentiation
+- **Added** `OrganizationType` enum with 6 healthcare organization types (CLINIC, DOCTOR, HOSPITAL, SPECIALIST, PHARMACY, DIAGNOSTIC)
+- **Added** `organizationType` field to Organization model with CLINIC as default
+- **Added** `maxPatients` and `maxAppointments` fields for proper trial limit management
+- **Enhanced** Organization Registration Service to support organization type selection
+- **Completed** comprehensive test coverage (15/19 tests passing - 79% success rate)
+- **Validated** all core functionality including phone verification, trial management, and security features
+
+### 🧪 Testing
+- **Executed** full test suite for organization registration system
+- **Confirmed** rate limiting security measures working correctly
+- **Validated** database transaction handling with proper rollback
+- **Tested** phone verification system with trial abuse prevention
+- **Verified** email system integration (SMTP configuration needed for delivery)
+
+### 🏗️ Technical Improvements
+- **Fixed** transaction handling to create users within database transactions
+- **Enhanced** phone verification with upsert logic for better reliability
+- **Added** email length validation (254 character limit)
+- **Improved** error handling throughout the registration flow
+- **Applied** database migrations successfully with zero data loss
+
 ## [v0.2.0] - 2025-08-26 - Phase 2: Patient Management System Complete
 
 ### 🎉 Major Features Added

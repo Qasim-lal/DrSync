@@ -18,7 +18,7 @@
 
 import express from 'express';
 import { body, param } from 'express-validator';
-import { authenticateJWT } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import { migrationController } from '../controllers/migrationController';
 import { rateLimiter } from '../middleware/rateLimiter';
@@ -26,7 +26,7 @@ import { rateLimiter } from '../middleware/rateLimiter';
 const router = express.Router();
 
 // Apply authentication to all migration routes
-router.use(authenticateJWT);
+router.use(authenticate);
 
 /**
  * @route POST /api/migration/start

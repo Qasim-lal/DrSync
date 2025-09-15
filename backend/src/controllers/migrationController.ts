@@ -17,17 +17,14 @@
 
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
-import logger from '../utils/logger';
+import { logger } from '../utils/logger';
 import { dataMigrationService } from '../services/dataMigrationService';
 import { rollbackService } from '../services/rollbackService';
 import { handleControllerError } from '../utils/errorHandler';
+import { AuthUser } from '../services/auth';
 
 interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    role: string;
-    organizationId: string;
-  };
+  user?: AuthUser;
 }
 
 class MigrationController {
@@ -101,7 +98,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Migration start failed:', error);
-      handleControllerError(res, error, 'Failed to start migration');
+      handleControllerError(error, res, 'Failed to start migration', 'startMigration');
     }
   }
 
@@ -112,6 +109,14 @@ class MigrationController {
   async getMigrationStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { organizationId } = req.params;
+
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization ID is required'
+        });
+        return;
+      }
 
       // Authorization check
       if (req.user?.role !== 'ORG_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -142,7 +147,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Get migration status failed:', error);
-      handleControllerError(res, error, 'Failed to get migration status');
+      handleControllerError(error, res, 'Failed to get migration status', 'getMigrationStatus');
     }
   }
 
@@ -153,6 +158,14 @@ class MigrationController {
   async cancelMigration(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { organizationId } = req.params;
+
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization ID is required'
+        });
+        return;
+      }
 
       // Authorization check - only org admins or super admins can cancel migration
       if (req.user?.role !== 'ORG_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -187,7 +200,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Cancel migration failed:', error);
-      handleControllerError(res, error, 'Failed to cancel migration');
+      handleControllerError(error, res, 'Failed to cancel migration', 'cancelMigration');
     }
   }
 
@@ -198,6 +211,14 @@ class MigrationController {
   async validateMigrationReadiness(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { organizationId } = req.params;
+
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization ID is required'
+        });
+        return;
+      }
 
       // Authorization check
       if (req.user?.role !== 'ORG_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -254,7 +275,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Validate migration readiness failed:', error);
-      handleControllerError(res, error, 'Failed to validate migration readiness');
+      handleControllerError(error, res, 'Failed to validate migration readiness', 'validateMigrationReadiness');
     }
   }
 
@@ -294,7 +315,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Get migration history failed:', error);
-      handleControllerError(res, error, 'Failed to get migration history');
+      handleControllerError(error, res, 'Failed to get migration history', 'getMigrationHistory');
     }
   }
 
@@ -372,7 +393,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Rollback execution failed:', error);
-      handleControllerError(res, error, 'Failed to execute rollback');
+      handleControllerError(error, res, 'Failed to execute rollback', 'executeRollback');
     }
   }
 
@@ -383,6 +404,14 @@ class MigrationController {
   async getEmergencyStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
     try {
       const { organizationId } = req.params;
+
+      if (!organizationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Organization ID is required'
+        });
+        return;
+      }
 
       // Authorization check
       if (req.user?.role !== 'ORG_ADMIN' && req.user?.role !== 'SUPER_ADMIN') {
@@ -413,7 +442,7 @@ class MigrationController {
 
     } catch (error) {
       logger.error('Get emergency status failed:', error);
-      handleControllerError(res, error, 'Failed to get emergency status');
+      handleControllerError(error, res, 'Failed to get emergency status', 'getEmergencyStatus');
     }
   }
 }

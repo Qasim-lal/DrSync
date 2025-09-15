@@ -47,6 +47,22 @@ interface WeeklyReport {
   timestamp: Date;
 }
 
+interface WelcomeEmail {
+  to: string;
+  subject: string;
+  welcomeData: {
+    organizationName: string;
+    adminName: string;
+    trialEndDate: Date;
+    daysRemaining: number;
+    maxPatients: number;
+    maxAppointments: number;
+    loginUrl: string;
+    setupGuideUrl: string;
+  };
+  timestamp: Date;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter;
   private config: EmailConfig;
@@ -131,6 +147,32 @@ class EmailService {
 
     } catch (error) {
       logger.error(`Failed to send weekly report to ${report.to}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Send welcome email for new organization registration
+   */
+  async sendWelcomeEmail(welcome: WelcomeEmail): Promise<boolean> {
+    try {
+      const htmlContent = this.generateWelcomeEmailHtml(welcome.welcomeData, welcome.timestamp);
+      const textContent = this.generateWelcomeEmailText(welcome.welcomeData, welcome.timestamp);
+
+      const mailOptions = {
+        from: this.config.from,
+        to: welcome.to,
+        subject: welcome.subject,
+        text: textContent,
+        html: htmlContent
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      logger.info(`Welcome email sent to ${welcome.to}:`, result.messageId);
+      return true;
+
+    } catch (error) {
+      logger.error(`Failed to send welcome email to ${welcome.to}:`, error);
       return false;
     }
   }
@@ -399,6 +441,118 @@ ${recommendationsText}
 
 This is an automated report from DrSync Data Validation System.
 For support, contact: support@drsync.com
+    `;
+  }
+
+  /**
+   * Generate welcome email HTML
+   */
+  private generateWelcomeEmailHtml(welcomeData: any, _timestamp: Date): string {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Welcome to DrSync</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
+            <h1 style="margin: 0; font-size: 28px;">🎉 Welcome to DrSync!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your ${welcomeData.daysRemaining}-day trial has started</p>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin-top: 0; color: #495057;">Hello ${welcomeData.adminName}!</h2>
+            <p>Congratulations on setting up <strong>${welcomeData.organizationName}</strong> with DrSync. Your practice management system is ready to go!</p>
+          </div>
+          
+          <div style="background-color: #e8f5e8; border-left: 4px solid #28a745; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #155724;">🚀 Your Trial Details</h3>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li><strong>Trial Period:</strong> ${welcomeData.daysRemaining} days (ends ${welcomeData.trialEndDate.toLocaleDateString()})</li>
+              <li><strong>Patient Limit:</strong> Up to ${welcomeData.maxPatients} patients</li>
+              <li><strong>Appointment Limit:</strong> Up to ${welcomeData.maxAppointments} appointments</li>
+              <li><strong>Full Feature Access:</strong> All premium features included</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #856404;">📋 Next Steps</h3>
+            <ol style="margin: 10px 0; padding-left: 20px;">
+              <li>Log in to your account using the button below</li>
+              <li>Complete your practice setup (add staff, services, etc.)</li>
+              <li>Import or add your first patients</li>
+              <li>Schedule your first appointments</li>
+              <li>Explore advanced features like automated reminders</li>
+            </ol>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${welcomeData.loginUrl}" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">🔐 Login to DrSync</a>
+          </div>
+          
+          <div style="background-color: #d1ecf1; border-left: 4px solid #bee5eb; padding: 20px; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #0c5460;">📖 Helpful Resources</h3>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li><a href="${welcomeData.setupGuideUrl}" style="color: #007bff; text-decoration: none;">Setup Guide</a> - Step-by-step setup instructions</li>
+              <li><a href="mailto:support@drsync.com" style="color: #007bff; text-decoration: none;">Email Support</a> - Get help from our team</li>
+              <li><a href="https://docs.drsync.com" style="color: #007bff; text-decoration: none;">Documentation</a> - Detailed feature guides</li>
+            </ul>
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
+            <h3 style="margin-top: 0; color: #495057;">💬 Questions? We're here to help!</h3>
+            <p style="margin: 10px 0;">Our support team is available to help you get the most out of DrSync.</p>
+            <p style="margin: 10px 0;">Email: <a href="mailto:support@drsync.com" style="color: #007bff; text-decoration: none;">support@drsync.com</a></p>
+          </div>
+          
+          <div style="text-align: center; padding: 20px; border-top: 1px solid #dee2e6; margin-top: 30px; color: #6c757d; font-size: 14px;">
+            <p style="margin: 0;">This email was sent to ${welcomeData.adminName} as the administrator of ${welcomeData.organizationName}</p>
+            <p style="margin: 5px 0 0 0;">© 2024 DrSync - Your Practice Management Solution</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  /**
+   * Generate welcome email text
+   */
+  private generateWelcomeEmailText(welcomeData: any, _timestamp: Date): string {
+    return `
+Welcome to DrSync!
+
+Hello ${welcomeData.adminName},
+
+Congratulations on setting up ${welcomeData.organizationName} with DrSync. Your practice management system is ready to go!
+
+YOUR TRIAL DETAILS:
+- Trial Period: ${welcomeData.daysRemaining} days (ends ${welcomeData.trialEndDate.toLocaleDateString()})
+- Patient Limit: Up to ${welcomeData.maxPatients} patients
+- Appointment Limit: Up to ${welcomeData.maxAppointments} appointments
+- Full Feature Access: All premium features included
+
+NEXT STEPS:
+1. Log in to your account: ${welcomeData.loginUrl}
+2. Complete your practice setup (add staff, services, etc.)
+3. Import or add your first patients
+4. Schedule your first appointments
+5. Explore advanced features like automated reminders
+
+HELPFUL RESOURCES:
+- Setup Guide: ${welcomeData.setupGuideUrl}
+- Email Support: support@drsync.com
+- Documentation: https://docs.drsync.com
+
+QUESTIONS?
+Our support team is available to help you get the most out of DrSync.
+Email: support@drsync.com
+
+This email was sent to ${welcomeData.adminName} as the administrator of ${welcomeData.organizationName}
+
+© 2024 DrSync - Your Practice Management Solution
     `;
   }
 }

@@ -139,23 +139,34 @@ export class SubscriptionService {
    */
   static async registerTrialUsage(request: TrialRegistrationRequest): Promise<TrialHistory> {
     try {
-      const createData: any = {
+      const baseData = {
         phoneNumber: request.phoneNumber,
         email: request.email,
         organizationName: request.organizationName,
-        phoneVerified: false, // Will be verified separately
       };
       
+      const optionalData: any = {};
       if (request.ipAddress) {
-        createData.ipAddress = request.ipAddress;
+        optionalData.ipAddress = request.ipAddress;
       }
       
       if (request.userAgent) {
-        createData.userAgent = request.userAgent;
+        optionalData.userAgent = request.userAgent;
       }
       
-      const trialRecord = await prisma.trialHistory.create({
-        data: createData,
+      // Use upsert to handle case where phone verification created a record already
+      const trialRecord = await prisma.trialHistory.upsert({
+        where: { phoneNumber: request.phoneNumber },
+        create: {
+          ...baseData,
+          ...optionalData,
+          phoneVerified: false, // Will be updated if already verified
+        },
+        update: {
+          ...baseData,
+          ...optionalData,
+          // Keep existing phoneVerified status
+        },
       });
 
       logger.info('Trial usage registered', { 
@@ -181,9 +192,18 @@ export class SubscriptionService {
       const isValid = verificationCode === '123456'; // Mock verification code
 
       if (isValid) {
-        await prisma.trialHistory.update({
+        // Use upsert to create the record if it doesn't exist, or update if it does
+        await prisma.trialHistory.upsert({
           where: { phoneNumber },
-          data: { phoneVerified: true },
+          create: {
+            phoneNumber,
+            phoneVerified: true,
+            email: '', // Will be updated when trial is registered
+            organizationName: '', // Will be updated when trial is registered
+          },
+          update: {
+            phoneVerified: true,
+          },
         });
 
         logger.info('Phone number verified for trial', { phoneNumber });

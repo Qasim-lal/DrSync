@@ -258,6 +258,14 @@ export default function HomePage() {
               📋 Dashboard
             </Link>
           </div>
+          <div className="mt-6 text-center">
+            <Link 
+              href="/signup"
+              className="inline-block bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
+            >
+              🚀 Start Free Trial
+            </Link>
+          </div>
         </div>
 
         {/* Footer */}
