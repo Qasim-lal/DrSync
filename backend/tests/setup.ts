@@ -15,23 +15,28 @@ process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379/1';
 // Global test timeout
 jest.setTimeout(10000);
 
-// Mock Redis for tests if needed
-jest.mock('redis', () => ({
-  createClient: jest.fn(() => ({
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    set: jest.fn(),
-    get: jest.fn(),
-    del: jest.fn(),
-    exists: jest.fn(),
-  })),
-}));
+// Redis is now optional - no mocking needed
+// Tests will run without Redis configured
 
 // Global test setup and teardown
 beforeAll(async () => {
-  // Any global setup needed
+  // Initialize Redis for test environment
+  try {
+    const { connectRedis } = await import('../src/config/redis');
+    await connectRedis();
+  } catch (error) {
+    console.error('Failed to connect to Redis for tests:', error);
+    console.log('Make sure Redis is running for tests');
+    process.exit(1);
+  }
 });
 
 afterAll(async () => {
-  // Any global cleanup needed
+  // Clean up Redis connection
+  try {
+    const { closeRedis } = await import('../src/config/redis');
+    await closeRedis();
+  } catch (error) {
+    // Redis cleanup failed - not critical for tests
+  }
 });

@@ -122,9 +122,13 @@ class WhatsAppService {
         }
       });
 
+      // Clear existing mappings to ensure clean state
+      this.clients.clear();
+      this.phoneToOrgMapping.clear();
+
       for (const org of organizations) {
         await this.initializeClient(org.id, org.whatsappCredentials as any);
-        this.phoneToOrgMapping.set(org.whatsappPhoneNumber!, org.id);
+        // Phone mapping is set inside initializeClient to ensure atomicity
         logger.info(`Initialized WhatsApp client for ${org.name} (${org.whatsappPhoneNumber})`);
       }
 
@@ -177,6 +181,15 @@ class WhatsAppService {
     try {
       logger.info('Processing incoming WhatsApp message');
       
+      // Validate webhook data structure
+      if (!webhookData || typeof webhookData !== 'object') {
+        throw new Error('Invalid webhook data: must be a valid object');
+      }
+
+      if (!webhookData.entry || !Array.isArray(webhookData.entry)) {
+        throw new Error('Invalid webhook data: missing or invalid entry array');
+      }
+      
       // Extract message data
       const entry = webhookData.entry?.[0];
       const changes = entry?.changes?.[0];
@@ -209,18 +222,23 @@ class WhatsAppService {
    */
   private async identifyOrganization(value: any, _message: any): Promise<string | null> {
     try {
-      // Method 1: Use phone number mapping
+      // Method 1: Use phone number mapping (with database query)
       const businessPhoneId = value.metadata?.phone_number_id;
       if (businessPhoneId) {
-        const prisma = getPrismaClient();
-        const org = await prisma.organization.findFirst({
-          where: { whatsappCredentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
-          select: { id: true }
-        });
-        if (org) return org.id;
+        try {
+          const prisma = getPrismaClient();
+          const org = await prisma.organization.findFirst({
+            where: { whatsappCredentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
+            select: { id: true }
+          });
+          if (org) return org.id;
+        } catch (dbError) {
+          logger.error('Database error in organization identification:', dbError);
+          // Continue to fallback methods if database fails
+        }
       }
 
-      // Method 2: Use display phone number
+      // Method 2: Use display phone number (in-memory mapping - more reliable)
       const displayPhone = value.metadata?.display_phone_number;
       if (displayPhone) {
         const organizationId = this.phoneToOrgMapping.get(displayPhone);
@@ -683,19 +701,31 @@ class WhatsAppService {
   private async logMessage(message: IncomingMessage, direction: 'INBOUND' | 'OUTBOUND', messageId?: string): Promise<void> {
     try {
       const prisma = getPrismaClient();
-      await prisma.whatsAppMessage.create({
-        data: {
-          id: uuidv4(),
-          messageType: message.message.type.toUpperCase() as any,
-          content: message.message.text?.body || JSON.stringify(message.message),
-          direction: direction as any,
-          status: 'SENT',
-          organizationId: message.organizationId!,
-          patientId: (await this.getPatientIdByPhone(message.organizationId!, direction === 'INBOUND' ? message.from : message.to)) || '',
-          language: 'en',
-          ...(messageId && { whatsappMessageId: messageId })
-        }
-      });
+      
+      // Get patient ID, but allow null if patient doesn't exist
+      const patientId = await this.getPatientIdByPhone(
+        message.organizationId!, 
+        direction === 'INBOUND' ? message.from : message.to
+      );
+      
+      // Only include patientId if it exists to avoid foreign key constraint issues
+      const messageData: any = {
+        id: uuidv4(),
+        messageType: message.message.type.toUpperCase() as any,
+        content: message.message.text?.body || JSON.stringify(message.message),
+        direction: direction as any,
+        status: 'SENT',
+        organizationId: message.organizationId!,
+        language: 'en',
+        ...(messageId && { whatsappMessageId: messageId })
+      };
+      
+      // Only add patientId if we found a valid patient
+      if (patientId) {
+        messageData.patientId = patientId;
+      }
+      
+      await prisma.whatsAppMessage.create({ data: messageData });
     } catch (error) {
       logger.error('Error logging WhatsApp message:', error);
       // Don't throw - logging failure shouldn't break message flow

@@ -53,6 +53,10 @@ export const getRedisClient = (): RedisClientType => {
   return redisClient;
 };
 
+export const isRedisAvailable = (): boolean => {
+  return redisClient !== null && redisClient?.isReady;
+};
+
 export const closeRedis = async (): Promise<void> => {
   if (redisClient) {
     await redisClient.quit();

@@ -22,6 +22,7 @@ import billingRoutes from './routes/billing';
 import migrationRoutes from './routes/migration';
 import rbacTestRoutes from './routes/rbac-test';
 import organizationRoutes from './routes/organizations';
+import validationRoutes from './routes/validation';
 
 // Load environment variables
 dotenv.config();
@@ -77,6 +78,7 @@ app.get('/', (_req, res) => {
         billing: '/api/billing',
         migration: '/api/migration',
         organizations: '/api/organizations',
+        validation: '/api/validation',
       }
     },
     timestamp: new Date().toISOString(),
@@ -97,6 +99,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/migration', migrationRoutes);
 app.use('/api/rbac-test', rbacTestRoutes);
 app.use('/api/organizations', organizationRoutes);
+app.use('/api/validation', validationRoutes);
 
 // API documentation
 app.get('/api/docs', (_req, res) => {
@@ -113,6 +116,7 @@ app.get('/api/docs', (_req, res) => {
       billing: '/api/billing',
       migration: '/api/migration',
       organizations: '/api/organizations',
+      validation: '/api/validation',
     },
     documentation: 'See /docs/DrSync_API_Documentation.md for detailed API documentation'
   });
