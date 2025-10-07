@@ -98,6 +98,7 @@ class GoogleSheetsService {
   private auth: GoogleAuth;
   private sheets: sheets_v4.Sheets;
   private activeSlotLocks: Map<string, SlotLockData> = new Map();
+  private cleanupInterval: NodeJS.Timeout | null = null;
   
   constructor() {
     this.auth = new GoogleAuth({
@@ -109,7 +110,9 @@ class GoogleSheetsService {
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
     
     // Clean up expired slot locks every 30 seconds
-    setInterval(() => this.cleanupExpiredLocks(), 30000);
+    // Use unref() to allow the process to exit even if interval is active
+    this.cleanupInterval = setInterval(() => this.cleanupExpiredLocks(), 30000);
+    this.cleanupInterval.unref();
   }
 
   /**
@@ -1154,6 +1157,18 @@ class GoogleSheetsService {
     } catch (error) {
       logger.debug('Google Sheets analytics export failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Cleanup method to stop the interval timer
+   * Should be called when shutting down the service
+   */
+  cleanup(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+      logger.debug('GoogleSheetsService cleanup interval cleared');
     }
   }
 }

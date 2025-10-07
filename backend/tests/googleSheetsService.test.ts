@@ -53,14 +53,13 @@ const TEST_APPOINTMENT_DATA = {
 };
 
 describe('Google Sheets Service', () => {
-  let _testOrganization: any;
   let _testPatientId: string;
   let _testProviderId: string;
 
   beforeAll(async () => {
     // Create test organization
     const prisma = getPrismaClient();
-    _testOrganization = await prisma.organization.create({
+    await prisma.organization.create({
       data: {
         id: TEST_ORGANIZATION_ID,
         name: 'Test Clinic',

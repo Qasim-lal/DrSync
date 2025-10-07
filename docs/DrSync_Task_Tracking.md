@@ -872,7 +872,7 @@
 - [ ] **TASK-036:** Create configuration wizards 🔴 CRITICAL SRS REQUIREMENT
   - **Assignee:** Full Stack Developer
   - **Estimate:** 4 days
-  - **Status:** 🔄 Not Started - **MANDATORY for SaaS platform**
+  - **Status:** 🚧 In Progress - **INFRASTRUCTURE COMPLETE** (SUBTASK-036A-001 ✅)
   - **Dependencies:** TASK-035
   - **SRS Requirements:** REQ-SAAS-006 (WhatsApp setup wizard), REQ-SAAS-007 (Google Sheets integration wizard)
   - **📋 Detailed Implementation Document:** `docs/TASK-036_Configuration_Wizards_Implementation.md`

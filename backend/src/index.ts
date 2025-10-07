@@ -4,6 +4,7 @@ import { logger } from './utils/logger';
 import { connectDatabase } from './services/prisma';
 import { connectRedis } from './config/redis';
 import ScheduledBillingService from './services/scheduledBillingService';
+import { checkEmailConfigOnStartup } from './utils/emailConfigValidator';
 
 // Load environment variables
 dotenv.config();
@@ -24,6 +25,10 @@ process.on('SIGINT', () => {
 // Start server
 const startServer = async () => {
   try {
+    // Validate email configuration (will throw in production if not configured)
+    logger.info('Validating email configuration...');
+    checkEmailConfigOnStartup();
+
     // Connect to database
     logger.info('Connecting to database...');
     await connectDatabase();

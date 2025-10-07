@@ -23,6 +23,8 @@ import migrationRoutes from './routes/migration';
 import rbacTestRoutes from './routes/rbac-test';
 import organizationRoutes from './routes/organizations';
 import validationRoutes from './routes/validation';
+import configurationRoutes from './routes/configuration';
+import invitationRoutes from './routes/invitations';
 
 // Load environment variables
 dotenv.config();
@@ -79,6 +81,8 @@ app.get('/', (_req, res) => {
         migration: '/api/migration',
         organizations: '/api/organizations',
         validation: '/api/validation',
+        configuration: '/api/configuration',
+        invitations: '/api/invitations',
       }
     },
     timestamp: new Date().toISOString(),
@@ -100,6 +104,8 @@ app.use('/api/migration', migrationRoutes);
 app.use('/api/rbac-test', rbacTestRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/validation', validationRoutes);
+app.use('/api/configuration', configurationRoutes);
+app.use('/api/invitations', invitationRoutes);
 
 // API documentation
 app.get('/api/docs', (_req, res) => {
@@ -117,6 +123,8 @@ app.get('/api/docs', (_req, res) => {
       migration: '/api/migration',
       organizations: '/api/organizations',
       validation: '/api/validation',
+      configuration: '/api/configuration',
+      invitations: '/api/invitations',
     },
     documentation: 'See /docs/DrSync_API_Documentation.md for detailed API documentation'
   });
