@@ -30,8 +30,16 @@ export function WizardNavigation({
   customActions,
   showValidationSummary = true
 }: WizardNavigationProps) {
-  const hasValidationErrors = validation && !validation.isValid;
+  // BUG FIX: Validation state handling
+  // When validation is undefined (initial mount), treat it as having errors to disable Continue.
+  // When validation exists, check if it's valid.
+  // This prevents users from clicking Continue before the step validates on mount.
+  // Fixed: October 7, 2025
+  const hasValidationErrors = !validation || !validation.isValid;
   const hasValidationWarnings = validation && validation.warnings && validation.warnings.length > 0;
+  // BUG FIX: Only show error panel if there are actual error messages, not just isValid=false
+  // This prevents empty error panels when fields are filled but not validated yet
+  const showErrorSummary = validation && !validation.isValid && validation.errors && validation.errors.length > 0;
 
   const getNextButtonText = () => {
     if (isLoading) {
@@ -64,10 +72,10 @@ export function WizardNavigation({
   return (
     <div className={`wizard-navigation ${className}`}>
       {/* Validation Summary */}
-      {showValidationSummary && (hasValidationErrors || hasValidationWarnings) && (
+      {showValidationSummary && (showErrorSummary || hasValidationWarnings) && (
         <div className="mb-6">
           {/* Validation Errors */}
-          {hasValidationErrors && (
+          {showErrorSummary && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <div className="flex items-start">
                 <svg className="icon-small text-red-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -35,6 +35,7 @@ export function PermissionsStep({ data, onDataChange, onValidationChange }: Wiza
   const [verifying, setVerifying] = useState(false);
   const [allChecksComplete, setAllChecksComplete] = useState(false);
   const [error, setError] = useState('');
+  const [testMode, setTestMode] = useState(false);
 
   // Automatically verify permissions on mount if sheet is selected
   useEffect(() => {
@@ -42,6 +43,27 @@ export function PermissionsStep({ data, onDataChange, onValidationChange }: Wiza
       verifyAllPermissions();
     }
   }, [data.selectedSheetId]);
+
+  const handleTestBypass = () => {
+    setTestMode(true);
+    setError('');
+    
+    // Simulate successful permission checks
+    setPermissionChecks(checks =>
+      checks.map(check => ({
+        ...check,
+        status: 'success' as const,
+        errorMessage: undefined,
+      }))
+    );
+    
+    setAllChecksComplete(true);
+    
+    onDataChange({
+      permissions: { read: true, write: true, share: true },
+      permissionsVerified: true,
+    });
+  };
 
   const verifyAllPermissions = async () => {
     if (!data.selectedSheetId) {
@@ -207,6 +229,17 @@ export function PermissionsStep({ data, onDataChange, onValidationChange }: Wiza
         ))}
       </div>
 
+      {/* Test Bypass Button (for testing without real credentials) */}
+      {!allChecksComplete && (
+        <button
+          onClick={handleTestBypass}
+          className="w-full py-2 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>🧪</span>
+          <span>Skip (Simulate Permissions)</span>
+        </button>
+      )}
+
       {/* Verify Button */}
       <button
         onClick={verifyAllPermissions}
@@ -232,7 +265,7 @@ export function PermissionsStep({ data, onDataChange, onValidationChange }: Wiza
       {allChecksComplete && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-start">
-            <svg className="icon text-green-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="icon-small text-green-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>

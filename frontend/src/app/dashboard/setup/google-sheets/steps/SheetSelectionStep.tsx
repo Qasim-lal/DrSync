@@ -148,9 +148,11 @@ export function SheetSelectionStep({ data, onDataChange, onValidationChange }: W
       warnings.push('Selected sheet contains existing data');
     }
     
+    // BUG FIX: Only pass errors if there are actual error messages
+    // This prevents empty error panels from showing
     onValidationChange({
       isValid: errors.length === 0 && (selectedSheetId || newSheetName.trim()),
-      errors,
+      errors: errors.length > 0 ? errors : [],
       warnings,
     });
   }, [mode, selectedSheetId, newSheetName, data.existingSheetHasData, onValidationChange]);
@@ -203,6 +205,40 @@ export function SheetSelectionStep({ data, onDataChange, onValidationChange }: W
           </div>
         </button>
       </div>
+
+      {/* Testing Mode Bypass (Development Only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <svg className="icon-small text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm text-yellow-800">
+                <strong>Testing Mode:</strong> Simulate sheet selection without real Google Sheets API
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                const testSheetId = 'test-sheet-' + Date.now();
+                setSelectedSheetId(testSheetId);
+                setError('');
+                onDataChange({
+                  mode: 'select',
+                  selectedSheetId: testSheetId,
+                  sheetUrl: 'https://docs.google.com/spreadsheets/d/test',
+                  sheetName: 'Test Sheet - DrSync',
+                  existingSheetHasData: false,
+                  createNewSheet: false,
+                });
+              }}
+              className="px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              🧪 Skip (Use Test Sheet)
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Select Existing Sheet Mode */}
       {mode === 'select' && (

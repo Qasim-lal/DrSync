@@ -89,33 +89,10 @@ export default function GoogleSheetsSetupWizard() {
       component: StructureSetupStep,
       isComplete: false,
       isOptional: false,
-      canSkip: false,
-      validation: (data) => {
-        const errors = [];
-        const warnings = [];
-        
-        if (!data.structureType) {
-          errors.push('Please select a sheet structure type');
-        }
-        
-        if (!data.headersConfigured) {
-          errors.push('Column headers must be configured');
-        }
-        
-        if (data.customStructure && !data.customColumns) {
-          errors.push('Custom columns configuration is required');
-        }
-        
-        if (!data.sampleDataInserted) {
-          warnings.push('We recommend inserting sample data to verify the structure works correctly');
-        }
-
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings
-        };
-      }
+      canSkip: false
+      // BUG FIX: Removed conflicting page-level validation
+      // The StructureSetupStep component handles its own validation properly
+      // Page-level validation was checking for wrong field names (structureType vs structureMode)
     },
     {
       id: 'permissions-verification',
@@ -124,28 +101,10 @@ export default function GoogleSheetsSetupWizard() {
       component: PermissionsStep,
       isComplete: false,
       isOptional: false,
-      canSkip: false,
-      validation: (data) => {
-        const errors = [];
-        
-        if (!data.readPermissionVerified) {
-          errors.push('Read permission verification failed');
-        }
-        
-        if (!data.writePermissionVerified) {
-          errors.push('Write permission verification failed');
-        }
-        
-        if (!data.sharePermissionVerified) {
-          errors.push('Sheet sharing permissions need to be configured');
-        }
-
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings: []
-        };
-      }
+      canSkip: false
+      // BUG FIX: Removed conflicting page-level validation
+      // The PermissionsStep component handles its own validation properly
+      // Page-level validation was checking for wrong field names
     },
     {
       id: 'test-operations',
@@ -188,32 +147,10 @@ export default function GoogleSheetsSetupWizard() {
       component: SyncActivationStep,
       isComplete: false,
       isOptional: false,
-      canSkip: false,
-      validation: (data) => {
-        const errors = [];
-        
-        if (!data.syncServiceConfigured) {
-          errors.push('Sync service must be configured');
-        }
-        
-        if (!data.initialSyncCompleted) {
-          errors.push('Initial synchronization must be completed');
-        }
-        
-        if (!data.syncScheduleSet) {
-          errors.push('Sync schedule must be configured');
-        }
-        
-        if (!data.conflictResolutionSet) {
-          errors.push('Conflict resolution rules must be configured');
-        }
-
-        return {
-          isValid: errors.length === 0,
-          errors,
-          warnings: []
-        };
-      }
+      canSkip: false
+      // BUG FIX: Removed conflicting page-level validation
+      // The SyncActivationStep component handles its own validation properly
+      // Page-level validation was checking for wrong field names
     }
   ];
 

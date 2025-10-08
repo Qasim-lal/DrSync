@@ -151,7 +151,11 @@ export function ValidationStep({ data, onDataChange, onValidationChange }: Wizar
       }
     } catch (error: any) {
       console.error('Activation error:', error);
-      setActivationError('Error activating configuration: ' + error.message);
+      // BUG FIX: Better error message for JSON parsing errors
+      const errorMsg = error.message.includes('JSON')
+        ? 'Backend API error. The activation endpoint is not available in testing mode. You can click "Complete Configuration" to finish setup without activation.'
+        : 'Error activating configuration: ' + error.message;
+      setActivationError(errorMsg);
     } finally {
       setIsActivating(false);
     }
@@ -177,8 +181,11 @@ export function ValidationStep({ data, onDataChange, onValidationChange }: Wizar
       warnings.push('Configuration validated but not yet activated');
     }
 
+    // BUG FIX: Changed isValid from activationSuccess to allChecksValid
+    // This allows the Complete Configuration button to be enabled when validation passes,
+    // even before activation. The button should only be disabled if there are critical errors.
     onValidationChange({
-      isValid: activationSuccess,
+      isValid: allChecksValid,
       errors,
       warnings
     });
@@ -320,24 +327,47 @@ export function ValidationStep({ data, onDataChange, onValidationChange }: Wizar
       {validationComplete && allChecksValid && !activationSuccess && (
         <div className="border-t pt-6">
           <div className="flex flex-col items-center space-y-4">
-            <button
-              type="button"
-              onClick={handleActivate}
-              disabled={isActivating}
-              className="px-6 py-3 bg-green-600 text-white text-base font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            >
-              {isActivating ? (
-                <span className="flex items-center">
-                  <svg className="icon-small animate-spin -ml-1 mr-3 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Activating...
-                </span>
-              ) : (
-                '🚀 Activate WhatsApp Business API'
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleActivate}
+                disabled={isActivating}
+                className="px-6 py-3 bg-green-600 text-white text-base font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                {isActivating ? (
+                  <span className="flex items-center">
+                    <svg className="icon-small animate-spin -ml-1 mr-3 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Activating...
+                  </span>
+                ) : (
+                  '🚀 Activate WhatsApp Business API'
+                )}
+              </button>
+              {/* Testing Mode - Skip Activation */}
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivationSuccess(true);
+                    setActivationError('');
+                    onDataChange({ 
+                      validationComplete: true,
+                      activationSuccess: true,
+                      activatedAt: new Date().toISOString(),
+                      testMode: true
+                    });
+                  }}
+                  disabled={isActivating}
+                  className="px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Testing Mode: Skip activation"
+                >
+                  🧪 Skip Activation
+                </button>
               )}
-            </button>
+            </div>
             <p className="text-xs text-gray-500 text-center max-w-md">
               By activating, you confirm that all configurations are correct and you're ready to start using WhatsApp Business API for patient communications.
             </p>

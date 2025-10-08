@@ -122,11 +122,11 @@ export default function HomePage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Environment</span>
-                    <span className="font-medium">{healthStatus?.environment || 'Unknown'}</span>
+                    <span className="font-medium" suppressHydrationWarning>{healthStatus?.environment || 'Unknown'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Uptime</span>
-                    <span className="font-medium">
+                    <span className="font-medium" suppressHydrationWarning>
                       {healthStatus ? formatUptime(healthStatus.uptime) : 'N/A'}
                     </span>
                   </div>
@@ -146,7 +146,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(healthStatus?.services?.database || 'unknown')}
-                      <span className="text-sm font-medium capitalize">
+                      <span className="text-sm font-medium capitalize" suppressHydrationWarning>
                         {healthStatus?.services?.database || 'Unknown'}
                       </span>
                     </div>
@@ -161,7 +161,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(healthStatus?.services?.redis || 'unknown')}
-                      <span className="text-sm font-medium capitalize">
+                      <span className="text-sm font-medium capitalize" suppressHydrationWarning>
                         {healthStatus?.services?.redis || 'Unknown'}
                       </span>
                     </div>
@@ -176,7 +176,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(healthStatus?.services?.server || 'unknown')}
-                      <span className="text-sm font-medium capitalize">
+                      <span className="text-sm font-medium capitalize" suppressHydrationWarning>
                         {healthStatus?.services?.server || 'Unknown'}
                       </span>
                     </div>
@@ -236,26 +236,26 @@ export default function HomePage() {
               target="_blank"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              🩺 API Health Check
+              API Health Check
             </Link>
             <Link 
               href="http://localhost:3001/api/docs"
               target="_blank"
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              📚 API Documentation
+              API Documentation
             </Link>
             <Link 
               href="/pwa-test"
               className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              🔧 PWA Test Page
+              PWA Test Page
             </Link>
             <Link 
               href="/dashboard"
               className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
-              📋 Dashboard
+              Dashboard
             </Link>
           </div>
           <div className="mt-6 text-center">
@@ -263,7 +263,7 @@ export default function HomePage() {
               href="/signup"
               className="inline-block bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg font-semibold text-lg transition-colors shadow-lg"
             >
-              🚀 Start Free Trial
+              Start Free Trial
             </Link>
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function HomePage() {
         {/* Footer */}
         <div className="mt-16 text-center text-gray-500">
           <p>DrSync Healthcare Appointment Management System</p>
-          <p className="text-sm mt-1">Phase 1: Foundation Complete ✅ | Phase 2: Backend Development In Progress 🚧</p>
+          <p className="text-sm mt-1">Phase 1: Foundation Complete | Phase 2: Backend Development In Progress</p>
         </div>
       </div>
     </div>

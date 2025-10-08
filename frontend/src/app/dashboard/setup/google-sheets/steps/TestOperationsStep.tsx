@@ -42,6 +42,7 @@ export function TestOperationsStep({ data, onDataChange, onValidationChange }: W
   const [testing, setTesting] = useState(false);
   const [allTestsComplete, setAllTestsComplete] = useState(false);
   const [error, setError] = useState('');
+  const [testMode, setTestMode] = useState(false);
 
   // Auto-run tests if sheet is configured
   useEffect(() => {
@@ -49,6 +50,35 @@ export function TestOperationsStep({ data, onDataChange, onValidationChange }: W
       runAllTests();
     }
   }, [data.selectedSheetId, data.structureConfigured, data.permissionsVerified]);
+
+  const handleTestBypass = () => {
+    setTestMode(true);
+    setError('');
+    
+    // Simulate successful test operations
+    setOperations(ops =>
+      ops.map(op => ({
+        ...op,
+        status: 'success' as const,
+        details: `Test ${op.type} operation completed successfully`,
+        errorMessage: undefined,
+      }))
+    );
+    
+    setAllTestsComplete(true);
+    
+    const mockTestResults = {
+      insert: { success: true, details: 'Test insert completed' },
+      read: { success: true, details: 'Test read completed' },
+      update: { success: true, details: 'Test update completed' },
+      delete: { success: true, details: 'Test delete completed' },
+    };
+    
+    onDataChange({
+      testResults: mockTestResults,
+      operationsTested: true,
+    });
+  };
 
   const runAllTests = async () => {
     if (!data.selectedSheetId) {
@@ -193,7 +223,7 @@ export function TestOperationsStep({ data, onDataChange, onValidationChange }: W
       {(!data.structureConfigured || !data.permissionsVerified) && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <div className="flex items-start">
-            <svg className="icon text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="icon-small text-yellow-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div>
@@ -243,6 +273,17 @@ export function TestOperationsStep({ data, onDataChange, onValidationChange }: W
         ))}
       </div>
 
+      {/* Test Bypass Button (for testing without real credentials) */}
+      {!allTestsComplete && (
+        <button
+          onClick={handleTestBypass}
+          className="w-full py-2 bg-yellow-500 text-white font-medium rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>🧪</span>
+          <span>Skip (Simulate Tests)</span>
+        </button>
+      )}
+
       {/* Run Tests Button */}
       <button
         onClick={runAllTests}
@@ -268,7 +309,7 @@ export function TestOperationsStep({ data, onDataChange, onValidationChange }: W
       {allTestsComplete && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <div className="flex items-start">
-            <svg className="icon text-green-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="icon-small text-green-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>

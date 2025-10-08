@@ -48,11 +48,15 @@ export function CredentialsStep({ data, onDataChange, onValidationChange }: Wiza
         setValidationDetails(result.data.details);
       } else {
         setValidated(false);
-        setValidationError(result.data.errors?.[0] || 'Credential validation failed');
+        setValidationError(result.data.errors?.[0] || result.message || 'Credential validation failed');
       }
     } catch (err: any) {
       setValidated(false);
-      setValidationError('Error validating credentials: ' + err.message);
+      // BUG FIX: Better error message for JSON parsing errors (typically backend returning HTML)
+      const errorMsg = err.message.includes('JSON') 
+        ? 'Backend API error. In testing mode, use the Skip button to bypass validation.'
+        : 'Error validating credentials: ' + err.message;
+      setValidationError(errorMsg);
     } finally {
       setValidating(false);
     }
@@ -127,14 +131,22 @@ export function CredentialsStep({ data, onDataChange, onValidationChange }: Wiza
       errors.push('Phone Number ID must contain only numbers');
     }
 
-    // Validation status
-    if (appId && appSecret && accessToken && phoneNumberId && !validated) {
+    // BUG FIX: Only show validation warning if all fields are filled correctly
+    // Don't show it if there are already field errors
+    if (errors.length === 0 && appId && appSecret && accessToken && phoneNumberId && !validated) {
       warnings.push('Please validate your credentials with WhatsApp API');
     }
     
+    // BUG FIX: Change validation logic to prevent empty error fields
+    // - If there are field errors (empty fields, wrong format), isValid = false (shows error panel)
+    // - If fields are OK but not validated, isValid = false BUT no errors array (no error panel, just warnings)
+    // - Only when validated = true, isValid = true (Continue enabled)
+    const hasFieldErrors = errors.length > 0;
+    const allFieldsFilled = appId && appSecret && accessToken && phoneNumberId;
+    
     onValidationChange({
-      isValid: errors.length === 0 && validated,
-      errors,
+      isValid: !hasFieldErrors && validated,
+      errors: hasFieldErrors ? errors : [], // Only pass errors if there are actual field errors
       warnings
     });
   }, [appId, appSecret, accessToken, phoneNumberId, validated, onValidationChange]);
@@ -253,6 +265,22 @@ export function CredentialsStep({ data, onDataChange, onValidationChange }: Wiza
         >
           {testing ? 'Testing...' : 'Test Connection'}
         </button>
+        {/* Testing Mode - Skip Validation */}
+        {process.env.NODE_ENV === 'development' && (
+          <button
+            type="button"
+            onClick={() => {
+              setValidated(true);
+              setValidationDetails({ valid: true, testing: true, message: 'Test Mode - Validation Bypassed' });
+              setValidationError('');
+            }}
+            disabled={validating || testing || !appId || !appSecret || !accessToken || !phoneNumberId}
+            className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+            title="Testing Mode: Skip validation"
+          >
+            🧪 Skip
+          </button>
+        )}
       </div>
 
       {/* Validation Status Messages */}
@@ -264,8 +292,11 @@ export function CredentialsStep({ data, onDataChange, onValidationChange }: Wiza
             </svg>
             <div>
               <p className="font-medium text-green-900">Credentials Validated</p>
-              {validationDetails && (
-                <p className="text-sm text-green-700 mt-1">{validationDetails}</p>
+              {validationDetails && validationDetails.message && (
+                <p className="text-sm text-green-700 mt-1">{validationDetails.message}</p>
+              )}
+              {validationDetails && validationDetails.testing && (
+                <p className="text-xs text-green-600 mt-1">🧪 Test Mode - Validation Bypassed</p>
               )}
             </div>
           </div>

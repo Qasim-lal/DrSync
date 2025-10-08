@@ -182,14 +182,30 @@ export function PhoneNumberStep({ data, onDataChange, onValidationChange }: Wiza
               required
             />
             {phoneRegistrationStatus === 'not-started' && (
-              <button
-                type="button"
-                onClick={handleRegisterPhone}
-                disabled={isRegistering || !phoneNumber || !/^\+\d{1,15}$/.test(phoneNumber)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRegistering ? 'Registering...' : 'Register Phone'}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleRegisterPhone}
+                  disabled={isRegistering || !phoneNumber || !/^\+\d{1,15}$/.test(phoneNumber)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRegistering ? 'Registering...' : 'Register Phone'}
+                </button>
+                {/* Testing Mode - Skip Registration */}
+                {process.env.NODE_ENV === 'development' && phoneNumber && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhoneRegistrationStatus('verified');
+                    }}
+                    disabled={isRegistering}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Testing Mode: Skip phone verification"
+                  >
+                    🧪 Skip
+                  </button>
+                )}
+              </>
             )}
           </div>
           <p className="text-xs text-gray-500 mt-1">Enter in international format (e.g., +1234567890)</p>
