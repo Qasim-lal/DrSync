@@ -134,6 +134,19 @@ debug_*.sql
 invitation_token.txt
 *.token
 
+# Test scripts (exclude Jest test files in tests/ directories)
+test-*.ps1
+test-*.js
+simple-*.ps1
+simple-*.js
+*-test.ps1
+
+# Debug pages and routes
+*-debug/
+*-debug.test.ts
+*debug*.tsx
+rbac-test.ts
+
 # Temporary files
 *.tmp
 *.temp
