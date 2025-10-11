@@ -123,6 +123,17 @@ Thumbs.db
 *.sqlite
 *.db
 
+# SQL test/temp files (exclude migration files)
+create-org.sql
+create_*.sql
+query_*.sql
+test_*.sql
+*_test.sql
+*_temp.sql
+debug_*.sql
+invitation_token.txt
+*.token
+
 # Temporary files
 *.tmp
 *.temp
