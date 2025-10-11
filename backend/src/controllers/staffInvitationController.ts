@@ -15,14 +15,14 @@ import { emailService } from '../services/emailService';
  */
 export const createInvitation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, role, permissions } = req.body;
+    const { email, firstName, lastName, role, permissions } = req.body;
     const user = (req as any).user;
 
     // Validate required fields
-    if (!email || !role) {
+    if (!email || !role || !firstName || !lastName) {
       res.status(400).json({
         success: false,
-        message: 'Email and role are required',
+        message: 'Email, role, first name, and last name are required',
       });
       return;
     }
@@ -50,6 +50,8 @@ export const createInvitation = async (req: Request, res: Response): Promise<voi
     // Create invitation
     const invitation = await staffInvitationService.createInvitation({
       email,
+      firstName,
+      lastName,
       role,
       organizationId: user.organizationId,
       invitedBy: user.id,
@@ -99,14 +101,18 @@ export const createInvitation = async (req: Request, res: Response): Promise<voi
 };
 
 /**
- * Get all pending invitations for organization
- * GET /api/invitations
+ * Get all invitations for organization (with optional status filter)
+ * GET /api/invitations?status=PENDING|CANCELLED|EXPIRED|ACCEPTED|ALL
  */
 export const getPendingInvitations = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
+    const { status } = req.query;
 
-    const invitations = await staffInvitationService.getPendingInvitations(user.organizationId);
+    const invitations = await staffInvitationService.getAllInvitations(
+      user.organizationId,
+      status as string
+    );
 
     res.json({
       success: true,
@@ -308,6 +314,120 @@ export const cancelInvitation = async (req: Request, res: Response): Promise<voi
     res.status(400).json({
       success: false,
       message: error.message || 'Failed to cancel invitation',
+    });
+  }
+};
+
+/**
+ * Delete invitation permanently
+ * DELETE /api/invitations/:invitationId/permanent
+ */
+export const deleteInvitation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { invitationId } = req.params;
+    const user = (req as any).user;
+
+    if (!invitationId) {
+      res.status(400).json({
+        success: false,
+        message: 'Invitation ID is required',
+      });
+      return;
+    }
+
+    // Verify invitation belongs to user's organization
+    const invitation = await staffInvitationService.getInvitationById(invitationId);
+    
+    if (invitation.organizationId !== user.organizationId) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+      return;
+    }
+
+    await staffInvitationService.deleteInvitation(invitationId);
+
+    res.json({
+      success: true,
+      message: 'Invitation deleted permanently',
+    });
+  } catch (error: any) {
+    console.error('Error deleting invitation:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to delete invitation',
+    });
+  }
+};
+
+/**
+ * Re-invite: Create new invitation from cancelled/expired one
+ * POST /api/invitations/:invitationId/reinvite
+ */
+export const reInviteStaff = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { invitationId } = req.params;
+    const user = (req as any).user;
+
+    if (!invitationId) {
+      res.status(400).json({
+        success: false,
+        message: 'Invitation ID is required',
+      });
+      return;
+    }
+
+    // Verify invitation belongs to user's organization
+    const oldInvitation = await staffInvitationService.getInvitationById(invitationId);
+    
+    if (oldInvitation.organizationId !== user.organizationId) {
+      res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
+      return;
+    }
+
+    // Create new invitation
+    const result = await staffInvitationService.reInvite(invitationId, user.id);
+
+    // Get organization details for email
+    const { getPrismaClient } = require('../services/prisma');
+    const prisma = getPrismaClient();
+    
+    const organization = await prisma.organization.findUnique({
+      where: { id: user.organizationId },
+    });
+
+    const inviterName = `${user.firstName} ${user.lastName}`.trim() || user.email;
+
+    // Generate and send email
+    const emailContent = staffInvitationService.generateInvitationEmail(
+      oldInvitation.email,
+      organization?.name || 'Unknown Organization',
+      inviterName,
+      result.token
+    );
+
+    // Send email (non-blocking)
+    emailService.sendEmail(emailContent).catch((error: Error) => {
+      console.error('Failed to send invitation email:', error);
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Invitation re-sent successfully',
+      data: {
+        invitationId: result.invitationId,
+        expiresAt: result.expiresAt,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error re-inviting:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message || 'Failed to re-invite',
     });
   }
 };

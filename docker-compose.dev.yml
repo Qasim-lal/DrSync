@@ -85,6 +85,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: development
+      BACKEND_URL: http://backend:3001
       NEXT_PUBLIC_API_URL: http://localhost:3001/api
       NEXTAUTH_SECRET: dev_nextauth_secret_change_in_production
       NEXTAUTH_URL: http://localhost:3000

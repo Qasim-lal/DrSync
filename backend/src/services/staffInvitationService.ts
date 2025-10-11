@@ -12,6 +12,8 @@ const prisma = getPrismaClient();
 
 interface InvitationData {
   email: string;
+  firstName: string;
+  lastName: string;
   role: UserRole;
   organizationId: string;
   invitedBy: string;
@@ -79,7 +81,7 @@ export const verifyInvitationToken = (token: string): any => {
  * Create staff invitation
  */
 export const createInvitation = async (data: InvitationData): Promise<InvitationToken> => {
-  const { email, role, organizationId, invitedBy, permissions } = data;
+  const { email, firstName, lastName, role, organizationId, invitedBy, permissions } = data;
 
   // Check if user already exists
   const existingUser = await prisma.user.findFirst({
@@ -113,6 +115,8 @@ export const createInvitation = async (data: InvitationData): Promise<Invitation
   const invitation = await prisma.staffInvitation.create({
     data: {
       email,
+      firstName,
+      lastName,
       role,
       organizationId,
       invitedBy,
@@ -139,17 +143,20 @@ export const createInvitation = async (data: InvitationData): Promise<Invitation
 };
 
 /**
- * Get pending invitations for organization
+ * Get all invitations for organization with optional status filter
  */
-export const getPendingInvitations = async (organizationId: string) => {
+export const getAllInvitations = async (organizationId: string, status?: string) => {
+  const whereClause: any = {
+    organizationId,
+  };
+
+  // Add status filter if provided
+  if (status && status !== 'ALL') {
+    whereClause.status = status;
+  }
+
   const invitations = await prisma.staffInvitation.findMany({
-    where: {
-      organizationId,
-      status: 'PENDING',
-      expiresAt: {
-        gt: new Date(),
-      },
-    },
+    where: whereClause,
     include: {
       invitedByUser: {
         select: {
@@ -166,6 +173,13 @@ export const getPendingInvitations = async (organizationId: string) => {
   });
 
   return invitations;
+};
+
+/**
+ * Get pending invitations for organization (backward compatibility)
+ */
+export const getPendingInvitations = async (organizationId: string) => {
+  return getAllInvitations(organizationId, 'PENDING');
 };
 
 /**
@@ -208,6 +222,8 @@ export const validateToken = async (token: string) => {
   return {
     invitationId: invitation.id,
     email: invitation.email,
+    firstName: invitation.firstName,
+    lastName: invitation.lastName,
     role: invitation.role,
     organization: invitation.organization,
     expiresAt: invitation.expiresAt,
@@ -331,6 +347,61 @@ export const cancelInvitation = async (invitationId: string) => {
   });
 
   return { message: 'Invitation cancelled successfully' };
+};
+
+/**
+ * Delete invitation permanently (hard delete)
+ */
+export const deleteInvitation = async (invitationId: string) => {
+  const invitation = await prisma.staffInvitation.findUnique({
+    where: { id: invitationId },
+  });
+
+  if (!invitation) {
+    throw new Error('Invitation not found');
+  }
+
+  // Cannot delete ACCEPTED invitations (user already created)
+  if (invitation.status === 'ACCEPTED') {
+    throw new Error('Cannot delete accepted invitations. User account already created.');
+  }
+
+  // Permanently delete from database
+  await prisma.staffInvitation.delete({
+    where: { id: invitationId },
+  });
+
+  return { message: 'Invitation deleted permanently' };
+};
+
+/**
+ * Re-invite: Create new invitation from cancelled/expired one
+ */
+export const reInvite = async (invitationId: string, invitedBy: string): Promise<InvitationToken> => {
+  // Get the old invitation
+  const oldInvitation = await prisma.staffInvitation.findUnique({
+    where: { id: invitationId },
+  });
+
+  if (!oldInvitation) {
+    throw new Error('Invitation not found');
+  }
+
+  // Can only re-invite CANCELLED or EXPIRED invitations
+  if (oldInvitation.status !== 'CANCELLED' && oldInvitation.status !== 'EXPIRED') {
+    throw new Error('Can only re-invite cancelled or expired invitations');
+  }
+
+  // Create new invitation with same details
+  return createInvitation({
+    email: oldInvitation.email,
+    firstName: oldInvitation.firstName,
+    lastName: oldInvitation.lastName,
+    role: oldInvitation.role,
+    organizationId: oldInvitation.organizationId,
+    invitedBy,
+    permissions: oldInvitation.permissions,
+  });
 };
 
 /**

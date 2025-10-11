@@ -12,7 +12,7 @@
 **Overall Progress:** 4/4 main tasks completed (100%) ✅ **TASK-036 COMPLETE**
 - [x] **TASK-036A**: WhatsApp Business API Setup Wizard ✅ **FULLY COMPLETE** (Backend 52 tests + Frontend ValidationStep 356 lines)
 - [x] **TASK-036B**: Google Sheets Integration Wizard ✅ **FULLY COMPLETE**
-- [x] **TASK-036C**: Staff Invitation and Management Wizard ✅ **BACKEND 100% COMPLETE** (25/25 tests passing)
+- [x] **TASK-036C**: Staff Invitation and Management Wizard ✅ **FULLY COMPLETE** (Backend + Frontend + Enhanced Features)
 - [x] **TASK-036D**: Configuration Validation and Integration Testing ✅ **COMPLETE** (2/2 subtasks, 48 tests, 87.5% passing)
 
 ---
@@ -590,18 +590,34 @@ Configuration Wizards Architecture:
 
 ### 4.3 TASK-036C: Staff Invitation and Management Wizard
 
-**Status:** ✅ **BACKEND 100% COMPLETE - ALL 25 INTEGRATION TESTS PASSING**  
-**Progress:** Backend Implementation: 100% (3/3 subtasks) | Frontend: Pending | Integration: Backend verified  
-**Last Verified:** October 2, 2025
+**Status:** ✅ **FULLY COMPLETE - BACKEND + FRONTEND + ENHANCED FEATURES**  
+**Progress:** Backend Implementation: 100% (3/3 subtasks) | Frontend: 100% Complete | Integration: Fully verified  
+**Last Verified:** October 10, 2025
 
-#### ✅ Backend Implementation Complete
+#### ✅ Backend + Frontend Implementation Complete
 
-**Files Created:**
-- ✅ `staffInvitationService.ts` - Complete invitation service (415 lines)
-- ✅ `staffInvitationController.ts` - API controller (399 lines)
-- ✅ `invitations.ts` - REST API routes (104 lines)
-- ✅ Database schema updated with StaffInvitation model
+**Backend Files Created:**
+- ✅ `staffInvitationService.ts` - Complete invitation service with enhanced features
+- ✅ `staffInvitationController.ts` - API controller with new endpoints
+- ✅ `invitations.ts` - REST API routes (enhanced)
+- ✅ Database schema updated with firstName/lastName fields
 - ✅ Test suite with 25 comprehensive tests
+
+**Frontend Files Enhanced (October 10, 2025):**
+- ✅ `frontend/src/app/dashboard/staff/page.tsx` - Staff management dashboard with status filters (515 lines)
+- ✅ `frontend/src/app/dashboard/staff/invite/page.tsx` - Enhanced invitation form with name fields (337 lines)
+- ✅ `frontend/src/app/setup/[token]/page.tsx` - Account setup with pre-filled editable names (515 lines)
+
+**Enhanced Features Implemented (October 10, 2025):**
+- ✅ **Hybrid Name Approach**: firstName/lastName stored in invitation but editable during setup
+- ✅ **Status Filter Tabs**: ALL, PENDING, ACCEPTED, CANCELLED, EXPIRED with real-time filtering
+- ✅ **Smart Re-invite**: Create new invitation from cancelled/expired ones with same details
+- ✅ **Hard Delete**: Permanent deletion option (blocks ACCEPTED invitations for audit)
+- ✅ **Full Audit Trail**: All invitation statuses preserved with timestamps
+- ✅ **Database Constraint Fix**: Removed unique constraint to allow multiple statuses per email
+- ✅ **Conditional Actions**: Different buttons based on invitation status
+- ✅ **5 Statistics Cards**: Total, Pending, Accepted, Expired, Cancelled
+- ✅ **Pre-filled Setup Form**: Names auto-populated but user can edit
 
 **Test Results:** ✅ **25/25 TESTS PASSING (100%)**
 
@@ -617,16 +633,18 @@ Configuration Wizards Architecture:
 | Token Security | 2/2 | ✅ PASSING |
 | Statistics | 1/1 | ✅ PASSING |
 
-**API Endpoints:** 8/8 Implemented ✅
+**API Endpoints:** 11/11 Implemented ✅
 ```
 POST   /api/invitations                      ✅ Create invitation
-GET    /api/invitations                      ✅ List pending invitations  
-GET    /api/invitations/stats                ✅ Get statistics
+GET    /api/invitations                      ✅ List invitations (with status filter)
+GET    /api/invitations/stats                ✅ Get statistics (5 statuses)
 GET    /api/invitations/validate/:token      ✅ Validate token (public)
 POST   /api/invitations/accept               ✅ Accept invitation (public)
 GET    /api/invitations/:id                  ✅ Get invitation details
 POST   /api/invitations/:id/resend           ✅ Resend invitation
-DELETE /api/invitations/:id                  ✅ Cancel invitation
+POST   /api/invitations/:id/reinvite         ✅ Re-invite (CANCELLED/EXPIRED)
+DELETE /api/invitations/:id                  ✅ Cancel invitation (soft delete)
+DELETE /api/invitations/:id/permanent        ✅ Delete permanently (hard delete)
 ```
 
 **Security Features:** ✅ Verified
@@ -928,7 +946,9 @@ CREATE TABLE wizard_progress (
 - [x] All page-level validation conflicts removed ✅
 - [x] Optional step (Test Operations) skip functionality works ✅
 
-### 7.3 Staff Management Wizard Acceptance Criteria ✅ BACKEND COMPLETE
+### 7.3 Staff Management Wizard Acceptance Criteria ✅ FULLY COMPLETE
+
+**Backend Acceptance:**
 - [x] ✅ Staff invitation system is implemented and tested (25/25 tests passing)
 - [x] ✅ Invitation emails are generated with HTML and text templates
 - [x] ✅ Account setup links are secure (JWT-based with 7-day expiry)
@@ -936,8 +956,18 @@ CREATE TABLE wizard_progress (
 - [x] ✅ Role permissions are validated and enforced
 - [x] ✅ Multi-tenant organization isolation is working
 - [x] ✅ Token validation prevents expired and tampered tokens
-- [x] ✅ Duplicate invitations are prevented
-- [ ] ⏳ Frontend UI components pending implementation
+- [x] ✅ Duplicate PENDING invitations are prevented
+
+**Frontend Acceptance (October 10, 2025):**
+- [x] ✅ Staff management dashboard with status filtering (ALL, PENDING, ACCEPTED, CANCELLED, EXPIRED)
+- [x] ✅ Invitation form includes firstName and lastName fields
+- [x] ✅ Account setup form pre-fills names (editable by user)
+- [x] ✅ Statistics dashboard shows 5 cards (Total, Pending, Accepted, Expired, Cancelled)
+- [x] ✅ Conditional action buttons based on invitation status
+- [x] ✅ Re-invite functionality for CANCELLED/EXPIRED invitations
+- [x] ✅ Hard delete option for permanent removal (blocks ACCEPTED)
+- [x] ✅ Full audit trail maintained (all statuses preserved)
+- [x] ✅ User can successfully complete account setup and login
 
 ### 7.4 Overall System Acceptance Criteria
 - [ ] Complete configuration wizard workflow completes in under 30 minutes

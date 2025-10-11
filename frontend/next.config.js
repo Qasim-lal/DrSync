@@ -66,11 +66,13 @@ const nextConfig = {
   
   // API configuration
   async rewrites() {
+    // Use backend service name in Docker, localhost when running locally
+    const backendUrl = process.env.BACKEND_URL || 'http://backend:3001';
     return [
       // Proxy API requests to backend in development
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3001/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

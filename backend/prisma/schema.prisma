@@ -170,6 +170,8 @@ enum UserRole {
 model StaffInvitation {
   id          String   @id @default(cuid())
   email       String
+  firstName   String   // Invitee's first name (pre-filled, editable)
+  lastName    String   // Invitee's last name (pre-filled, editable)
   role        UserRole
   permissions String[] // Array of permission strings
   status      InvitationStatus @default(PENDING)
@@ -187,7 +189,9 @@ model StaffInvitation {
   invitedBy      String
   invitedByUser  User @relation("InvitationsSent", fields: [invitedBy], references: [id])
   
-  @@unique([email, organizationId]) // One invitation per email per org
+  // Note: No unique constraint to allow multiple invitations per email (with different statuses)
+  // Validation in code prevents multiple PENDING invitations per email per org
+  @@index([email, organizationId, status]) // Index for efficient lookups
   @@index([status, expiresAt]) // For cleanup of expired invitations
   @@map("staff_invitations")
 }

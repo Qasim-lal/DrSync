@@ -90,7 +90,31 @@ router.post(
 );
 
 /**
- * Cancel invitation
+ * Re-invite: Create new invitation from cancelled/expired one
+ * POST /api/invitations/:invitationId/reinvite
+ * Requires: ADMIN or SUPER_ADMIN role
+ */
+router.post(
+  '/:invitationId/reinvite',
+  authenticate,
+  authorize(['ADMIN', 'SUPER_ADMIN']),
+  staffInvitationController.reInviteStaff
+);
+
+/**
+ * Delete invitation permanently
+ * DELETE /api/invitations/:invitationId/permanent
+ * Requires: ADMIN or SUPER_ADMIN role
+ */
+router.delete(
+  '/:invitationId/permanent',
+  authenticate,
+  authorize(['ADMIN', 'SUPER_ADMIN']),
+  staffInvitationController.deleteInvitation
+);
+
+/**
+ * Cancel invitation (soft delete)
  * DELETE /api/invitations/:invitationId
  * Requires: ADMIN or SUPER_ADMIN role
  */
