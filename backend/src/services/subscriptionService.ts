@@ -659,6 +659,130 @@ export class SubscriptionService {
       logger.error('Failed to check overdue payments', { error: (error as Error).message });
     }
   }
+
+  /**
+   * TASK-038B-003: Get subscription lifecycle overview
+   */
+  static async getSubscriptionLifecycleOverview(): Promise<any> {
+    try {
+      // Get subscription status counts
+      const statusCounts = await prisma.organization.groupBy({
+        by: ['subscriptionStatus'],
+        _count: true
+      });
+
+      const statusBreakdown: Record<string, number> = {};
+      statusCounts.forEach(item => {
+        statusBreakdown[item.subscriptionStatus] = item._count;
+      });
+
+      // Get plan distribution
+      const planCounts = await prisma.organization.groupBy({
+        by: ['subscriptionPlan'],
+        where: { subscriptionStatus: 'ACTIVE' },
+        _count: true
+      });
+
+      const planBreakdown: Record<string, number> = {};
+      planCounts.forEach(item => {
+        planBreakdown[item.subscriptionPlan] = item._count;
+      });
+
+      // Calculate churn and retention (simplified)
+      const thisMonth = new Date();
+      thisMonth.setDate(1);
+      thisMonth.setHours(0, 0, 0, 0);
+
+      const lastMonth = new Date(thisMonth);
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+
+      const activeThisMonth = await prisma.organization.count({
+        where: {
+          subscriptionStatus: 'ACTIVE',
+          createdAt: { lt: thisMonth }
+        }
+      });
+
+      const cancelledThisMonth = await prisma.organization.count({
+        where: {
+          subscriptionStatus: { in: ['CANCELLED', 'SUSPENDED'] },
+          updatedAt: { gte: thisMonth }
+        }
+      });
+
+      const churnRate = activeThisMonth > 0 
+        ? (cancelledThisMonth / activeThisMonth) * 100
+        : 0;
+
+      const retentionRate = 100 - churnRate;
+
+      logger.info('Subscription lifecycle overview calculated');
+
+      return {
+        statusBreakdown,
+        planBreakdown,
+        metrics: {
+          churnRate: churnRate.toFixed(2) + '%',
+          retentionRate: retentionRate.toFixed(2) + '%',
+          activeSubscriptions: statusBreakdown['ACTIVE'] || 0,
+          trialSubscriptions: statusBreakdown['TRIAL'] || 0,
+          suspendedSubscriptions: statusBreakdown['SUSPENDED'] || 0,
+          cancelledSubscriptions: statusBreakdown['CANCELLED'] || 0,
+          pastDueSubscriptions: statusBreakdown['PAST_DUE'] || 0
+        }
+      };
+    } catch (error) {
+      logger.error('Failed to get subscription lifecycle overview', { error: (error as Error).message });
+      throw new Error('Failed to get subscription lifecycle overview');
+    }
+  }
+
+  /**
+   * TASK-038B-003: Update subscription plan for an organization
+   */
+  static async updateSubscriptionPlan(
+    organizationId: string,
+    subscriptionPlan: string,
+    reason: string
+  ): Promise<Organization> {
+    try {
+      const organization = await prisma.organization.update({
+        where: { id: organizationId },
+        data: {
+          subscriptionPlan: subscriptionPlan as any,
+          updatedAt: new Date()
+        }
+      });
+
+      logger.info('Subscription plan updated', {
+        organizationId,
+        newPlan: subscriptionPlan,
+        reason
+      });
+
+      return organization;
+    } catch (error) {
+      logger.error('Failed to update subscription plan', { error: (error as Error).message, organizationId });
+      throw new Error('Failed to update subscription plan');
+    }
+  }
+
+  /**
+   * TASK-038B-003: Suspend organization (wrapper for suspendForNonPayment)
+   */
+  static async suspendOrganization(organizationId: string, reason: string): Promise<Organization> {
+    return this.suspendForNonPayment(organizationId, reason);
+  }
+
+  /**
+   * TASK-038B-003: Reactivate organization (wrapper for reactivateSubscription)
+   */
+  static async reactivateOrganization(organizationId: string): Promise<Organization> {
+    return this.reactivateSubscription(organizationId);
+  }
 }
 
 export default SubscriptionService;
+
+// Export singleton instance for services that need instance-based access
+export const subscriptionService = SubscriptionService;

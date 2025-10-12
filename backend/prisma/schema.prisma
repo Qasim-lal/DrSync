@@ -87,6 +87,7 @@ model Organization {
   paymentIntents PaymentIntent[]
   systemMetrics SystemMetric[]
   staffInvitations StaffInvitation[]
+  supportTickets SupportTicket[]
   
   @@map("organizations")
 }
@@ -754,4 +755,256 @@ model BillingHistory {
   @@index([organizationId, billingPeriod])
   @@index([paymentIntentId])
   @@map("billing_history")
+}
+
+// ============================================================================
+// SUPPORT & TICKETING SYSTEM (TASK-038D)
+// ============================================================================
+
+// Support ticket management
+model SupportTicket {
+  id             String   @id @default(cuid())
+  ticketNumber   String   @unique // Human-readable ticket number (e.g., "TICKET-2024-001")
+  
+  // Ticket details
+  subject        String
+  description    String   @db.Text
+  status         TicketStatus @default(OPEN)
+  priority       TicketPriority @default(MEDIUM)
+  category       TicketCategory
+  
+  // Assignment
+  assignedTo     String?  // Super admin user ID
+  assignedAt     DateTime?
+  
+  // Resolution
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  resolutionNotes String?  @db.Text
+  
+  // Metadata
+  tags           String[] // Searchable tags
+  attachments    Json?    // Array of attachment URLs/metadata
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  createdBy      String   // User ID who created the ticket
+  responses      TicketResponse[]
+  
+  @@index([organizationId, status])
+  @@index([status, priority])
+  @@index([assignedTo, status])
+  @@index([category, status])
+  @@map("support_tickets")
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  FEATURE_REQUEST
+  BUG
+  ACCOUNT
+  SETUP
+  INTEGRATION
+  OTHER
+}
+
+// Ticket responses and communications
+model TicketResponse {
+  id         String   @id @default(cuid())
+  ticketId   String
+  message    String   @db.Text
+  isInternal Boolean  @default(false) // Internal notes not visible to customer
+  
+  // Attachments
+  attachments Json?   // Array of attachment URLs/metadata
+  
+  // Status change tracking
+  statusChange TicketStatus?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  responderId String  // User ID of responder (super admin or org user)
+  
+  @@index([ticketId, createdAt])
+  @@map("ticket_responses")
+}
+
+// Knowledge base articles
+model KnowledgeBaseArticle {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique // URL-friendly identifier
+  content     String   @db.Text // Markdown or HTML content
+  excerpt     String?  // Short summary
+  
+  // Categorization
+  category    KBCategory
+  tags        String[] // Searchable tags
+  
+  // Publishing
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+  
+  // Analytics
+  viewCount   Int      @default(0)
+  helpfulCount Int     @default(0)
+  notHelpfulCount Int  @default(0)
+  
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Author tracking
+  authorId  String   // Super admin who created/last updated
+  
+  @@index([status, category])
+  @@index([publishedAt])
+  @@map("knowledge_base_articles")
+}
+
+enum KBCategory {
+  GETTING_STARTED
+  SETUP
+  BILLING
+  FEATURES
+  INTEGRATIONS
+  TROUBLESHOOTING
+  BEST_PRACTICES
+  FAQ
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Communication logs for broadcasts and notifications
+model CommunicationLog {
+  id          String   @id @default(cuid())
+  type        CommunicationType
+  
+  // Content
+  subject     String?
+  message     String   @db.Text
+  channel     CommunicationChannel
+  
+  // Targeting
+  recipientType String  // "ALL", "FILTERED", "SPECIFIC"
+  recipientFilter Json? // Filter criteria if type is FILTERED
+  recipientIds String[] // Specific organization IDs if type is SPECIFIC
+  recipientCount Int    @default(0) // Number of recipients
+  
+  // Scheduling
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  
+  // Status
+  status      CommunicationStatus @default(PENDING)
+  
+  // Analytics
+  deliveredCount Int @default(0)
+  openedCount    Int @default(0)
+  clickedCount   Int @default(0)
+  failedCount    Int @default(0)
+  
+  // Metadata
+  templateId  String?  // If using a template
+  metadata    Json?    // Additional data
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Creator
+  createdBy String   // Super admin user ID
+  
+  @@index([type, status])
+  @@index([scheduledFor, status])
+  @@index([createdBy])
+  @@map("communication_logs")
+}
+
+enum CommunicationType {
+  BROADCAST
+  ANNOUNCEMENT
+  NOTIFICATION
+  ALERT
+  MAINTENANCE
+}
+
+enum CommunicationChannel {
+  EMAIL
+  IN_APP
+  SMS
+  PUSH
+}
+
+enum CommunicationStatus {
+  PENDING
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+// Email templates for support communications
+model EmailTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  subject     String
+  body        String   @db.Text // HTML or plain text with variables
+  category    EmailTemplateCategory
+  
+  // Variables
+  variables   String[] // Available variables (e.g., {{organizationName}}, {{userName}})
+  
+  // Status
+  isActive    Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Creator
+  createdBy String   // Super admin user ID
+  
+  @@index([category, isActive])
+  @@map("email_templates")
+}
+
+enum EmailTemplateCategory {
+  SUPPORT
+  BILLING
+  ANNOUNCEMENT
+  ONBOARDING
+  MAINTENANCE
+  MARKETING
 }

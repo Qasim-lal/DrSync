@@ -61,6 +61,28 @@ export class AuthService {
   }
 
   /**
+   * Generate a single access token (for testing purposes)
+   */
+  generateAccessToken(payload: Partial<JWTPayload>): string {
+    const fullPayload: JWTPayload = {
+      userId: payload.userId!,
+      organizationId: payload.organizationId!,
+      role: payload.role!,
+      email: payload.email || '',
+    };
+
+    return jwt.sign(
+      fullPayload,
+      this.jwtSecret,
+      {
+        expiresIn: this.accessTokenExpiry,
+        issuer: 'drsync-api',
+        audience: 'drsync-client',
+      } as jwt.SignOptions
+    );
+  }
+
+  /**
    * Generate JWT token pair (access + refresh)
    */
   generateTokenPair(user: AuthUser): TokenPair {

@@ -217,7 +217,10 @@ export class ConfigurationBackupService {
                 await tx.staffInvitation.create({
                   data: {
                     email: invitationData.email as string,
+                    firstName: (invitationData as any).firstName || 'Invited',
+                    lastName: (invitationData as any).lastName || 'User',
                     role: invitationData.role as any,
+                    permissions: (invitationData as any).permissions || [],
                     token: crypto.randomBytes(32).toString('hex'),
                     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
                     organizationId: backup.organizationId,

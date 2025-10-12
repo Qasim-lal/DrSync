@@ -145,7 +145,7 @@ simple-*.js
 *-debug/
 *-debug.test.ts
 *debug*.tsx
-rbac-test.ts
+# Note: rbac-test.ts in src/routes/ is NOT excluded - it's a required test route
 
 # Temporary files
 *.tmp

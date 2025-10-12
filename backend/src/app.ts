@@ -25,6 +25,10 @@ import organizationRoutes from './routes/organizations';
 import validationRoutes from './routes/validation';
 import configurationRoutes from './routes/configuration';
 import invitationRoutes from './routes/invitations';
+import superAdminRoutes from './routes/superAdmin';
+import communicationRoutes from './routes/communicationRoutes';
+import assistanceRoutes from './routes/assistanceRoutes';
+import supportAnalyticsRoutes from './routes/supportAnalyticsRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -83,6 +87,8 @@ app.get('/', (_req, res) => {
         validation: '/api/validation',
         configuration: '/api/configuration',
         invitations: '/api/invitations',
+        superAdmin: '/api/super-admin',
+        communications: '/api/communications',
       }
     },
     timestamp: new Date().toISOString(),
@@ -106,6 +112,10 @@ app.use('/api/organizations', organizationRoutes);
 app.use('/api/validation', validationRoutes);
 app.use('/api/configuration', configurationRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/super-admin', superAdminRoutes);
+app.use('/api/communications', communicationRoutes);
+app.use('/api/super-admin/support', assistanceRoutes);
+app.use('/api/super-admin/support', supportAnalyticsRoutes);
 
 // API documentation
 app.get('/api/docs', (_req, res) => {
@@ -125,6 +135,8 @@ app.get('/api/docs', (_req, res) => {
       validation: '/api/validation',
       configuration: '/api/configuration',
       invitations: '/api/invitations',
+      superAdmin: '/api/super-admin',
+      communications: '/api/communications',
     },
     documentation: 'See /docs/DrSync_API_Documentation.md for detailed API documentation'
   });
