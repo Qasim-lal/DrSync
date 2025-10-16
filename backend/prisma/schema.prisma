@@ -88,6 +88,7 @@ model Organization {
   systemMetrics SystemMetric[]
   staffInvitations StaffInvitation[]
   supportTickets SupportTicket[]
+  appointmentReminders AppointmentReminder[]
   
   @@map("organizations")
 }
@@ -391,6 +392,7 @@ model Appointment {
   provider       Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
   
   messages       WhatsAppMessage[]
+  reminders      AppointmentReminder[]
   
   @@index([scheduledAt, providerId]) // For efficient appointment queries
   @@index([patientId, scheduledAt])  // For patient appointment history
@@ -420,6 +422,62 @@ enum BookingSource {
   PHONE
   WALK_IN
   GOOGLE_SHEETS
+}
+
+// Appointment reminder tracking
+// Required by TASK-042 (Automated Reminders)
+model AppointmentReminder {
+  id                String   @id @default(cuid())
+  
+  // Reminder details
+  reminderType      ReminderType // Type of reminder
+  scheduledFor      DateTime     // When reminder should be sent
+  sentAt            DateTime?    // When reminder was actually sent
+  
+  // Status tracking
+  status            ReminderStatus @default(PENDING)
+  
+  // Message tracking
+  messageId         String?      // WhatsApp message ID if sent
+  skipReason        String?      // Reason if skipped (e.g., "notification_disabled", "patient_opted_out")
+  
+  // Retry tracking
+  attempts          Int       @default(0)  // Number of send attempts
+  lastAttemptAt     DateTime?    // Last attempt timestamp
+  errorMessage      String?      // Error details if failed
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  appointmentId  String
+  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  // Indexes for efficient queries
+  @@index([organizationId, scheduledFor]) // For finding reminders to send
+  @@index([status, scheduledFor])         // For processing pending reminders
+  @@index([appointmentId, reminderType])  // For checking if reminder already exists
+  @@map("appointment_reminders")
+}
+
+enum ReminderType {
+  REMINDER_24H       // 24 hours before appointment
+  REMINDER_2H        // 2 hours before appointment
+  REMINDER_30MIN     // 30 minutes before appointment
+  FOLLOWUP_SAME_DAY  // Follow-up on same day after appointment
+  FOLLOWUP_NEXT_DAY  // Follow-up next day after appointment
+  NO_SHOW_FOLLOWUP   // Follow-up when patient doesn't show
+}
+
+enum ReminderStatus {
+  PENDING     // Reminder scheduled but not sent
+  SENT        // Reminder successfully sent
+  FAILED      // Failed to send after retries
+  SKIPPED     // Skipped due to settings or patient preference
+  CANCELLED   // Cancelled (e.g., appointment cancelled)
 }
 
 // ============================================================================

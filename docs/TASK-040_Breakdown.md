@@ -104,6 +104,12 @@ Implement the complete WhatsApp message processing pipeline that handles incomin
   - Add language switching capability (user command)
   - Store user language preference
 
+- **2.4** Language Detection Strategy (Added in ACTION #5 - Pre-Implementation Checklist)
+  - Define comprehensive detection algorithm
+  - Handle ambiguous cases with user prompts
+  - Implement conversation context management with Redis TTL
+  - Add test cases for all detection scenarios
+
 **Sub-subtasks (2.1):**
 - Create `LanguageDetector` service class
 - Define Urdu/English word dictionaries
@@ -122,11 +128,170 @@ Implement the complete WhatsApp message processing pipeline that handles incomin
 - Implement Handlebars-style variable replacement
 - Add "Switch to English/اردو میں تبدیل کریں" commands
 
+**Sub-subtasks (2.4): Language Detection Strategy**
+
+**Step 1: Urdu Script Detection**
+- Check for Urdu Unicode range (U+0600 to U+06FF) in message text
+- Calculate percentage of Urdu characters in message
+- If >50% Urdu characters → Detect as Urdu (high confidence)
+- If 20-50% Urdu characters → Mixed language (medium confidence)
+- If <20% Urdu characters → Likely English or transliteration
+
+**Step 2: Keyword-Based Detection**
+- **Urdu Keywords:** Check for common words
+  - Greetings: سلام، السلام عليکم، ہیلو، صبح بخیر، شام بخیر
+  - Common words: شکریہ، نام، ڈاکٹر، وقت، تاریخ، ملاقات، کب، کہاں
+  - Actions: بک کرنا، منسوخ کرنا، دیکھنا، تبدیل کرنا
+- **English Keywords:** Check for common words
+  - Greetings: hello, hi, good morning, good afternoon, assalam alaikum
+  - Common words: thank you, name, doctor, appointment, time, date, when, where
+  - Actions: book, cancel, view, reschedule, confirm
+- If 3+ Urdu keywords → Urdu language
+- If 3+ English keywords → English language
+
+**Step 3: Handle Ambiguous Cases**
+- If both script and keywords are inconclusive:
+  - **Prompt user to select language:**
+    ```
+    Please select your preferred language:
+    1. English
+    2. اردو
+    
+    براہ کرم اپنی زبان منتخب کریں:
+    1. English  
+    2. اردو
+    ```
+- If user sends "1" → Set language to English
+- If user sends "2" or "٢" → Set language to Urdu
+- Store language preference immediately in Redis
+
+**Step 4: Conversation Context Management**
+- **Redis Storage:**
+  - Key: `conversation:language:{organizationId}:{phoneNumber}`
+  - Value: `{ "language": "en|ur", "confidence": 0.95, "detectedAt": ISO8601 }`
+  - TTL: **30 minutes** (1800 seconds)
+- **Context Expiry:** After 30 minutes of inactivity, re-detect language
+- **Manual Override:** User can switch language anytime with commands:
+  - "Switch to English" or "English" → Set to English
+  - "اردو میں تبدیل کریں" or "اردو" → Set to Urdu
+
+**Step 5: Detection Algorithm Implementation**
+```typescript
+interface LanguageDetectionResult {
+  language: 'en' | 'ur';
+  confidence: number; // 0.0 to 1.0
+  method: 'script' | 'keywords' | 'cached' | 'user_selected';
+  requiresConfirmation: boolean;
+}
+
+async function detectLanguage(
+  messageText: string,
+  organizationId: string,
+  phoneNumber: string
+): Promise<LanguageDetectionResult> {
+  // 1. Check cached language preference (Redis)
+  const cached = await redis.get(`conversation:language:${organizationId}:${phoneNumber}`);
+  if (cached) {
+    return {
+      language: cached.language,
+      confidence: 1.0,
+      method: 'cached',
+      requiresConfirmation: false
+    };
+  }
+  
+  // 2. Urdu script detection
+  const urduCharCount = (messageText.match(/[\u0600-\u06FF]/g) || []).length;
+  const totalChars = messageText.replace(/\s/g, '').length;
+  const urduPercentage = totalChars > 0 ? urduCharCount / totalChars : 0;
+  
+  if (urduPercentage > 0.5) {
+    return {
+      language: 'ur',
+      confidence: 0.9,
+      method: 'script',
+      requiresConfirmation: false
+    };
+  }
+  
+  // 3. Keyword-based detection
+  const urduKeywords = ['سلام', 'شکریہ', 'نام', 'ڈاکٹر', 'وقت', 'ملاقات'];
+  const englishKeywords = ['hello', 'hi', 'thank', 'name', 'doctor', 'appointment', 'time'];
+  
+  const urduMatches = urduKeywords.filter(kw => messageText.includes(kw)).length;
+  const englishMatches = englishKeywords.filter(kw => 
+    messageText.toLowerCase().includes(kw)
+  ).length;
+  
+  if (urduMatches >= 2) {
+    return {
+      language: 'ur',
+      confidence: 0.8,
+      method: 'keywords',
+      requiresConfirmation: false
+    };
+  }
+  
+  if (englishMatches >= 2) {
+    return {
+      language: 'en',
+      confidence: 0.8,
+      method: 'keywords',
+      requiresConfirmation: false
+    };
+  }
+  
+  // 4. Ambiguous - require user confirmation
+  return {
+    language: 'en', // Default to English
+    confidence: 0.3,
+    method: 'keywords',
+    requiresConfirmation: true // Prompt user to select language
+  };
+}
+```
+
+**Step 6: Language Persistence**
+```typescript
+async function saveLanguagePreference(
+  organizationId: string,
+  phoneNumber: string,
+  language: 'en' | 'ur',
+  confidence: number
+): Promise<void> {
+  const preferenceData = {
+    language,
+    confidence,
+    detectedAt: new Date().toISOString()
+  };
+  
+  // Store in Redis with 30-minute TTL
+  await redis.setex(
+    `conversation:language:${organizationId}:${phoneNumber}`,
+    1800, // 30 minutes in seconds
+    JSON.stringify(preferenceData)
+  );
+  
+  // Optional: Also store in PostgreSQL for analytics
+  await prisma.patient.update({
+    where: {
+      phone: phoneNumber,
+      organizationId: organizationId
+    },
+    data: {
+      preferredLanguage: language,
+      updatedAt: new Date()
+    }
+  });
+}
+```
+
 **Deliverables:**
 - ✅ Language detection service (>90% accuracy)
 - ✅ Bilingual message templates (10+ templates)
-- ✅ Language preference caching
+- ✅ Language preference caching (Redis with 30-minute TTL)
 - ✅ Language switching functionality
+- ✅ Comprehensive language detection strategy (ACTION #5 - Pre-Implementation Checklist)
 
 **Testing:**
 - Test English detection (50 samples)
@@ -135,6 +300,86 @@ Implement the complete WhatsApp message processing pipeline that handles incomin
 - Test history-based detection
 - Test language caching (Redis)
 - Test template rendering both languages
+
+**Test Cases for Language Detection Strategy (2.4):**
+
+**Test Case 1: Pure Urdu Script**
+- Input: "مجھے ڈاکٹر سے ملاقات کی ضرورت ہے"
+- Expected: `{ language: 'ur', confidence: 0.9, method: 'script' }`
+- Status: Script detection >50% Urdu characters
+
+**Test Case 2: Pure English**
+- Input: "I need to book an appointment with doctor"
+- Expected: `{ language: 'en', confidence: 0.8, method: 'keywords' }`
+- Status: Keyword detection (book, appointment, doctor)
+
+**Test Case 3: Mixed Language (Urdu-dominant)**
+- Input: "Doctor سے appointment بک کرنا ہے"
+- Expected: `{ language: 'ur', confidence: 0.7, method: 'script' }`
+- Status: Urdu characters >30%
+
+**Test Case 4: Mixed Language (English-dominant)**
+- Input: "I want to book ملاقات tomorrow"
+- Expected: `{ language: 'en', confidence: 0.7, method: 'keywords' }`
+- Status: English keywords dominant
+
+**Test Case 5: Ambiguous Input (Numbers Only)**
+- Input: "1" (first message from user)
+- Expected: `{ language: 'en', confidence: 0.3, requiresConfirmation: true }`
+- Status: No clear language indicators, prompt user
+
+**Test Case 6: Cached Language Preference**
+- Input: "book" (user previously selected Urdu)
+- Expected: `{ language: 'ur', confidence: 1.0, method: 'cached' }`
+- Status: Redis cache hit, return stored preference
+
+**Test Case 7: Language Switch Command (English)**
+- Input: "Switch to English"
+- Expected: Language changed to 'en', cache updated
+- Status: Manual override, save to Redis
+
+**Test Case 8: Language Switch Command (Urdu)**
+- Input: "اردو میں تبدیل کریں"
+- Expected: Language changed to 'ur', cache updated
+- Status: Manual override, save to Redis
+
+**Test Case 9: Context Expiry (30 minutes)**
+- Input: "appointment" (last message was 31 minutes ago)
+- Expected: Re-detect language (cached value expired)
+- Status: Redis key expired (TTL=1800s), perform fresh detection
+
+**Test Case 10: User Language Selection Response**
+- System: "Select language: 1. English 2. اردو"
+- Input: "2"
+- Expected: `{ language: 'ur', confidence: 1.0, method: 'user_selected' }`
+- Status: User explicitly selected Urdu, save to Redis
+
+**Test Case 11: Roman Urdu (Transliteration)**
+- Input: "Mujhe doctor se milna hai"
+- Expected: `{ language: 'en', confidence: 0.5, requiresConfirmation: true }`
+- Status: No Urdu script, English keywords detected, may need confirmation
+
+**Test Case 12: Greeting-based Detection (Urdu)**
+- Input: "سلام"
+- Expected: `{ language: 'ur', confidence: 0.9, method: 'script' }`
+- Status: Urdu script detected
+
+**Test Case 13: Greeting-based Detection (English)**
+- Input: "Hi"
+- Expected: `{ language: 'en', confidence: 0.8, method: 'keywords' }`
+- Status: English keyword detected
+
+**Test Case 14: Multi-word Urdu Keywords**
+- Input: "مجھے ڈاکٹر کی ضرورت ہے"
+- Expected: `{ language: 'ur', confidence: 0.9, method: 'script' }`
+- Status: Multiple Urdu keywords + script detection
+
+**Test Case 15: Persistence to PostgreSQL**
+- After language detection, verify:
+  - Redis key exists: `conversation:language:{orgId}:{phone}`
+  - Redis TTL = 1800 seconds
+  - Patient record updated with `preferredLanguage` field
+- Status: Both Redis and PostgreSQL storage working
 
 ---
 
