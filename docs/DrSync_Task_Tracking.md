@@ -1018,6 +1018,13 @@
 **Priority:** 🔴 HIGH - Core SRS functionality
 **Status:** 🔄 Not Started
 
+**⚠️ PRE-IMPLEMENTATION REQUIREMENT:**
+**MUST COMPLETE BEFORE STARTING:** `docs/PHASE-3_PRE_IMPLEMENTATION_CHECKLIST.md`
+- 📋 **10 Critical Actions** (3.5 days estimated)
+- 🔴 **3 Critical Issues** must be resolved before development
+- 📊 **Analysis Reports:** See `PHASE-3_ANALYSIS_REPORT.md` and `PHASE-3_DETAILED_ANALYSIS_REPORT.md`
+- ✅ **Sign-off Required:** All Priority 1 & 2 actions complete before Phase 3 starts
+
 ### 5.1 WhatsApp API Setup
 - [ ] **TASK-039:** Configure WhatsApp Business API
   - **Assignee:** Backend Developer 1
@@ -1031,6 +1038,50 @@
   - **Estimate:** 3 days
   - **Status:** 🔄 Not Started
   - **Dependencies:** TASK-039
+
+- [ ] **TASK-040A:** Implement WhatsApp notification settings & cost control 🔴 CRITICAL COST OPTIMIZATION
+  - **Assignee:** Backend Developer 1 + Frontend Developer 1
+  - **Estimate:** 5 days (2.5 days backend + 2.5 days frontend)
+  - **Status:** 🔄 Not Started
+  - **Dependencies:** TASK-040
+  - **Priority:** 🔴 HIGH - Cost optimization feature for client retention
+  - **SRS Requirements:** REQ-NOTIF-001 through REQ-NOTIF-015, US-COST001 through US-COST008
+  - **📋 Detailed Document:** `docs/NOTIFICATION_SETTINGS_FEATURE_SPEC.md`
+  - **Sub-tasks:**
+    - [ ] **TASK-040A-1:** Database schema implementation (notification_settings, patient_notification_overrides, message_cost_tracking tables)
+    - [ ] **TASK-040A-2:** Backend API implementation (NotificationSettingsService, cost calculator, preset modes)
+    - [ ] **TASK-040A-3:** Integration with WhatsApp message sending (respect settings before sending messages)
+    - [ ] **TASK-040A-4:** Message tracking system (track sent vs. saved messages for cost analytics)
+    - [ ] **TASK-040A-5:** Frontend settings UI (dashboard settings page with real-time cost calculator)
+    - [ ] **TASK-040A-6:** Message preview functionality (show clients what messages look like)
+    - [ ] **TASK-040A-7:** Preset modes (Budget, Recommended, Premium configurations)
+    - [ ] **TASK-040A-8:** Smart bundling implementation (combine messages to reduce costs)
+    - [ ] **TASK-040A-9:** Patient segmentation (different rules for new/regular/VIP patients)
+    - [ ] **TASK-040A-10:** Cost optimization suggestions (AI-powered recommendations)
+  - **Testing Requirements:**
+    - [ ] **TESTING-040A:** Notification settings validation
+      - [ ] Test all 12+ notification types can be toggled on/off
+      - [ ] Verify cost calculator accuracy (within 5% of actual costs)
+      - [ ] Test preset modes apply correct settings
+      - [ ] Validate message sending respects settings (100% compliance)
+      - [ ] Test patient segmentation rules work correctly
+      - [ ] Verify smart bundling reduces costs by 30%+
+      - [ ] Test cost tracking analytics are accurate
+  - **Deliverables:**
+    - ✅ Feature specification document (NOTIFICATION_SETTINGS_FEATURE_SPEC.md)
+    - ⏳ Database schema with 3 new tables
+    - ⏳ Backend API with NotificationSettingsService
+    - ⏳ Frontend settings UI with cost calculator
+    - ⏳ Message preview component
+    - ⏳ Integration with message sending pipeline
+    - ⏳ Cost tracking and analytics dashboard
+    - ⏳ Comprehensive test suite (50+ tests)
+  - **Business Value:**
+    - **Marketing:** "Control your WhatsApp costs - enable only what you need"
+    - **Retention:** Clinics can save 67% (PKR 5,600/month) by optimizing settings
+    - **Competitive:** Other platforms force all messages, we give choice
+    - **Small Clinics:** Budget mode makes DrSync affordable (PKR 2,800/month)
+  - **Notes:** **MAJOR COMPETITIVE ADVANTAGE** - This feature directly addresses client cost concerns and enables flexible pricing. Essential for small clinic market penetration. See NOTIFICATION_SETTINGS_FEATURE_SPEC.md for complete implementation details including 12 message types, 3 preset modes, cost calculator, and smart bundling.
 
 ### 5.3 WhatsApp Appointment Flows (Google Sheets Primary)
 - [ ] **TASK-041:** Implement appointment booking directly to Google Sheets
@@ -1066,7 +1117,7 @@
     - [ ] Message templates with Google Sheets data personalization
   - **Notes:** **DATA SOURCE CHANGE:** All automated messages get their data from Google Sheets, not PostgreSQL
 
-**Phase 3 Progress:** 🔄 0/4 tasks completed (0%)
+**Phase 3 Progress:** 🔄 0/5 tasks completed (0%) - Added TASK-040A for WhatsApp notification settings & cost control
 
 ## 7. Phase 4: Google Sheets Integration
 **Duration:** 2 weeks (Nov 13 - Nov 27, 2025)  

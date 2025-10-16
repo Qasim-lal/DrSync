@@ -173,6 +173,28 @@ Automated messaging and follow-up system for patient engagement.
 - **REQ-COMM-006**: System SHALL handle message scheduling and queuing
 - **REQ-COMM-007**: System SHALL support message templates with personalization
 
+### 3.7 WhatsApp Notification Settings & Cost Control
+
+#### 3.7.1 Description
+Configurable notification system allowing organizations to control which automated WhatsApp messages are sent, enabling cost optimization and workflow customization.
+
+#### 3.7.2 Functional Requirements
+- **REQ-NOTIF-001**: System SHALL provide organization-level notification settings interface
+- **REQ-NOTIF-002**: System SHALL support enable/disable controls for each notification type
+- **REQ-NOTIF-003**: System SHALL calculate real-time cost estimates based on notification settings
+- **REQ-NOTIF-004**: System SHALL support configurable timing for notifications (e.g., 24 hours, 2 hours before)
+- **REQ-NOTIF-005**: System SHALL provide preset modes (Budget, Recommended, Premium)
+- **REQ-NOTIF-006**: System SHALL display cost impact for each notification type
+- **REQ-NOTIF-007**: System SHALL support patient segmentation with custom notification rules
+- **REQ-NOTIF-008**: System SHALL implement smart message bundling to reduce costs
+- **REQ-NOTIF-009**: System SHALL track messages sent vs. messages saved for cost analytics
+- **REQ-NOTIF-010**: System SHALL provide message preview functionality
+- **REQ-NOTIF-011**: System SHALL respect notification settings when sending automated messages
+- **REQ-NOTIF-012**: System SHALL support 12+ notification types (confirmations, reminders, follow-ups, etc.)
+- **REQ-NOTIF-013**: System SHALL provide cost optimization suggestions based on usage patterns
+- **REQ-NOTIF-014**: System SHALL allow customization of message content per notification type
+- **REQ-NOTIF-015**: System SHALL maintain notification settings history for audit purposes
+
 ### 3.7 Data Integration System
 
 #### 3.7.1 Description
@@ -279,6 +301,16 @@ Google Sheets integration for decentralized data management.
 - **US-SA003**: As a super admin, I want to view system-wide analytics so that I can make strategic decisions
 - **US-SA004**: As a super admin, I want to provide technical support so that I can help clients resolve issues
 - **US-SA005**: As a super admin, I want to manage trial abuse prevention so that I can protect platform resources
+
+### 6.6 WhatsApp Cost Control Stories
+- **US-COST001**: As an organization admin, I want to control which WhatsApp messages are sent so that I can manage messaging costs
+- **US-COST002**: As an organization admin, I want to see estimated monthly costs so that I can budget appropriately
+- **US-COST003**: As an organization admin, I want to preview messages before enabling them so that I can ensure quality
+- **US-COST004**: As an organization admin, I want preset configurations so that I can quickly optimize for my budget
+- **US-COST005**: As an organization admin, I want to see cost savings from disabled messages so that I can track ROI
+- **US-COST006**: As an organization admin, I want to customize message timing so that I can match my clinic's workflow
+- **US-COST007**: As an organization admin, I want to segment patients with different notification rules so that I can optimize engagement
+- **US-COST008**: As an organization admin, I want smart bundling recommendations so that I can reduce costs without losing communication quality
 
 ## 7. Use Cases
 

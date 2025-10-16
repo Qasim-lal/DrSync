@@ -283,6 +283,107 @@ CREATE TABLE audit_logs (
     user_agent TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- WhatsApp Notification Settings
+CREATE TABLE notification_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) UNIQUE NOT NULL,
+    
+    -- Quick presets
+    preset_mode VARCHAR(20) DEFAULT 'recommended', -- budget, recommended, premium, custom
+    
+    -- Appointment lifecycle
+    booking_confirmation_enabled BOOLEAN DEFAULT true,
+    booking_confirmation_include_doctor BOOLEAN DEFAULT true,
+    booking_confirmation_include_location BOOLEAN DEFAULT true,
+    
+    appointment_reminder_enabled BOOLEAN DEFAULT true,
+    appointment_reminder_hours_before INTEGER DEFAULT 24,
+    appointment_reminder_request_confirmation BOOLEAN DEFAULT true,
+    
+    pre_appointment_instructions_enabled BOOLEAN DEFAULT false,
+    pre_appointment_instructions_hours_before INTEGER DEFAULT 2,
+    
+    arrival_notification_enabled BOOLEAN DEFAULT false,
+    arrival_notification_minutes_before INTEGER DEFAULT 30,
+    
+    post_appointment_followup_enabled BOOLEAN DEFAULT false,
+    post_appointment_followup_hours_after INTEGER DEFAULT 24,
+    
+    medication_reminders_enabled BOOLEAN DEFAULT false,
+    medication_reminders_frequency VARCHAR(20) DEFAULT 'daily',
+    medication_reminders_default_duration INTEGER DEFAULT 7,
+    
+    -- Rescheduling & cancellation
+    rescheduling_confirmation_enabled BOOLEAN DEFAULT true,
+    cancellation_confirmation_enabled BOOLEAN DEFAULT true,
+    
+    -- Administrative
+    no_show_followup_enabled BOOLEAN DEFAULT false,
+    payment_reminders_enabled BOOLEAN DEFAULT false,
+    
+    -- Advanced features
+    patient_segmentation_enabled BOOLEAN DEFAULT false,
+    smart_bundling_enabled BOOLEAN DEFAULT false,
+    
+    -- Metadata
+    estimated_monthly_messages INTEGER DEFAULT 0,
+    estimated_monthly_cost DECIMAL(10,2) DEFAULT 0.00,
+    last_cost_calculation_at TIMESTAMP,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Patient-specific notification overrides
+CREATE TABLE patient_notification_overrides (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    patient_id UUID NOT NULL,
+    organization_id UUID REFERENCES organizations(id) NOT NULL,
+    
+    use_custom_settings BOOLEAN DEFAULT false,
+    custom_settings JSONB,
+    patient_segment VARCHAR(50), -- new, regular, vip, budget
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(patient_id, organization_id)
+);
+
+-- Message cost tracking
+CREATE TABLE message_cost_tracking (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) NOT NULL,
+    
+    period_year INTEGER NOT NULL,
+    period_month INTEGER NOT NULL,
+    
+    -- Message counts by type
+    booking_confirmations_sent INTEGER DEFAULT 0,
+    appointment_reminders_sent INTEGER DEFAULT 0,
+    pre_instructions_sent INTEGER DEFAULT 0,
+    arrival_notifications_sent INTEGER DEFAULT 0,
+    followup_messages_sent INTEGER DEFAULT 0,
+    medication_reminders_sent INTEGER DEFAULT 0,
+    rescheduling_confirmations_sent INTEGER DEFAULT 0,
+    cancellation_confirmations_sent INTEGER DEFAULT 0,
+    no_show_followups_sent INTEGER DEFAULT 0,
+    payment_reminders_sent INTEGER DEFAULT 0,
+    
+    -- Costs
+    total_messages_sent INTEGER DEFAULT 0,
+    estimated_cost DECIMAL(10,2) DEFAULT 0.00,
+    
+    -- Savings
+    messages_saved_by_settings INTEGER DEFAULT 0,
+    cost_saved DECIMAL(10,2) DEFAULT 0.00,
+    
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    
+    UNIQUE(organization_id, period_year, period_month)
+);
 ```
 
 #### 4.1.2 Indexes
@@ -295,6 +396,9 @@ CREATE INDEX idx_users_org ON users(organization_id);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_whatsapp_messages_org_time ON whatsapp_messages(organization_id, created_at);
 CREATE INDEX idx_audit_logs_org_time ON audit_logs(organization_id, created_at);
+CREATE INDEX idx_notification_settings_org ON notification_settings(organization_id);
+CREATE INDEX idx_patient_overrides_patient ON patient_notification_overrides(patient_id);
+CREATE INDEX idx_message_tracking_org_period ON message_cost_tracking(organization_id, period_year, period_month);
 ```
 
 ### 4.2 Google Sheets Schema (Client Data)

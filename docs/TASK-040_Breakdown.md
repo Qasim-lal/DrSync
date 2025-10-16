@@ -1,0 +1,615 @@
+# TASK-040: Message Processing Pipeline - Task Breakdown
+
+**Parent:** Phase 3: WhatsApp Integration  
+**Status:** 🔄 Not Started  
+**Priority:** 🔴 HIGH - Core SRS functionality  
+**Assignee:** Backend Developer 2  
+**Estimate:** 3 days  
+**Dependencies:** TASK-039 (WhatsApp Business API Configuration)
+
+---
+
+## 📋 Overview
+
+Implement the complete WhatsApp message processing pipeline that handles incoming messages, detects language and intent, processes business logic, generates responses, and maintains conversation state across multi-tenant organizations.
+
+**Source:** DrSync_Task_Tracking.md Line 1029-1034
+
+---
+
+## 🎯 SRS Requirements Coverage
+
+### Primary Focus
+- **REQ-WA-001**: System SHALL detect user language (English/Urdu) automatically
+- **REQ-WA-002**: System SHALL provide menu-driven navigation
+- **REQ-WA-003**: System SHALL display available doctors and specialties
+- **REQ-WA-007**: System SHALL provide clinic information
+- **PERF-001**: System SHALL respond to WhatsApp messages within 3 seconds
+
+### Covered in Other Tasks
+- **REQ-WA-004**: Real-time availability → TASK-041
+- **REQ-WA-005**: Appointment booking → TASK-041
+- **REQ-WA-006**: Automated confirmations → TASK-042
+- **REQ-NOTIF-001 to REQ-NOTIF-015**: Notification settings → TASK-040A
+
+---
+
+## 📊 Task Breakdown
+
+### MAIN TASK: TASK-040 - Message Processing Pipeline
+
+#### 1. Message Queue Infrastructure
+**Objective:** Implement Bull Queue with Redis for asynchronous message processing
+
+**Sub-tasks:**
+- **1.1** Bull Queue Setup and Configuration
+  - Install Bull and IORedis packages
+  - Configure Redis connection with retry strategy
+  - Set up queue options (attempts: 3, backoff: exponential, timeout: 30s)
+  - Implement queue event handlers (error, failed, completed)
+  
+- **1.2** Queue Worker Implementation
+  - Create message processing worker with concurrency (5 concurrent jobs)
+  - Implement job progress tracking (10%, 100%)
+  - Add performance monitoring (<3 second requirement)
+  - Implement graceful shutdown (SIGTERM handling)
+  
+- **1.3** Queue Management API
+  - GET `/api/queue/stats` - Queue statistics endpoint
+  - GET `/api/queue/job/:jobId` - Job status check
+  - POST `/api/queue/retry-failed` - Retry failed jobs
+  - POST `/api/queue/pause` - Pause queue (admin only)
+  - POST `/api/queue/resume` - Resume queue (admin only)
+  
+- **1.4** Webhook Integration
+  - Update WhatsApp controller to enqueue messages
+  - Respond to Meta webhook within 20 seconds
+  - Implement priority-based job queuing (high/normal/low)
+  - Handle status updates asynchronously
+
+**Deliverables:**
+- ✅ Bull Queue configured with Redis
+- ✅ Queue worker processing messages
+- ✅ 5 queue management API endpoints
+- ✅ Webhook integration complete
+
+**Testing:**
+- Test queue accepts and processes jobs
+- Test concurrent processing (5 jobs)
+- Test retry mechanism (3 attempts)
+- Test <3 second processing time
+- Test webhook responds <20 seconds
+
+---
+
+#### 2. Language Detection Engine
+**Objective:** Implement automatic language detection for English and Urdu (REQ-WA-001)
+
+**Sub-tasks:**
+- **2.1** Unicode-based Urdu Detection
+  - Implement Urdu Unicode pattern matching (U+0600 to U+06FF)
+  - Create keyword-based detection for common Urdu/English words
+  - Add confidence scoring (0.0 to 1.0)
+  - Handle mixed language text
+  
+- **2.2** History-based Detection
+  - Detect language from last 5 user messages
+  - Cache detected language in Redis (30 days TTL)
+  - Implement language preference API
+  - Sync preferences to Google Sheets
+  
+- **2.3** Bilingual Message Templates
+  - Create message templates for both languages
+  - Implement template variable substitution
+  - Add language switching capability (user command)
+  - Store user language preference
+
+**Sub-subtasks (2.1):**
+- Create `LanguageDetector` service class
+- Define Urdu/English word dictionaries
+- Implement character-based detection algorithm
+- Add confidence thresholds (>0.7 for high confidence)
+
+**Sub-subtasks (2.2):**
+- Query last 5 messages from database
+- Calculate language distribution
+- Implement Redis caching layer
+- Update Google Sheets patient records
+
+**Sub-subtasks (2.3):**
+- Define template structure (welcome, booking, error, etc.)
+- Create English/Urdu template pairs
+- Implement Handlebars-style variable replacement
+- Add "Switch to English/اردو میں تبدیل کریں" commands
+
+**Deliverables:**
+- ✅ Language detection service (>90% accuracy)
+- ✅ Bilingual message templates (10+ templates)
+- ✅ Language preference caching
+- ✅ Language switching functionality
+
+**Testing:**
+- Test English detection (50 samples)
+- Test Urdu detection (50 samples)
+- Test mixed language handling
+- Test history-based detection
+- Test language caching (Redis)
+- Test template rendering both languages
+
+---
+
+#### 3. Intent Recognition System
+**Objective:** Classify user messages into actionable intents (TDD 7.1.2 Step 4)
+
+**Sub-tasks:**
+- **3.1** Intent Classification Engine
+  - Define intent types (12 intents)
+  - Create keyword patterns for English/Urdu
+  - Implement regex-based pattern matching
+  - Add confidence scoring
+  
+- **3.2** Entity Extraction
+  - Extract dates (tomorrow, today, DD/MM format)
+  - Extract times (12-hour/24-hour formats)
+  - Extract doctor names
+  - Extract patient details
+  
+- **3.3** Context-aware Classification
+  - Track conversation state
+  - Infer intent from current conversation step
+  - Handle menu number selections (1-5)
+  - Implement intent priority system
+
+**Intent Types:**
+1. `BOOK_APPOINTMENT` - Book new appointment
+2. `CANCEL_APPOINTMENT` - Cancel existing appointment
+3. `RESCHEDULE_APPOINTMENT` - Reschedule appointment
+4. `VIEW_APPOINTMENTS` - View upcoming appointments
+5. `GET_CLINIC_INFO` - Clinic details, hours, location
+6. `GET_DOCTOR_INFO` - Doctor list, specialties
+7. `GET_AVAILABILITY` - Check available slots
+8. `CONFIRM_APPOINTMENT` - Confirm booking
+9. `CHECK_STATUS` - Check appointment status
+10. `HELP_MENU` - Show main menu
+11. `SWITCH_LANGUAGE` - Change language
+12. `UNKNOWN` - Unrecognized intent
+
+**Sub-subtasks (3.1):**
+- Create `IntentClassifier` service class
+- Define keyword arrays for each intent (English/Urdu)
+- Implement pattern matching logic
+- Add fallback to unknown intent
+
+**Sub-subtasks (3.2):**
+- Implement date parsing (relative and absolute)
+- Implement time parsing with AM/PM detection
+- Create name extraction regex patterns
+- Validate extracted entities
+
+**Sub-subtasks (3.3):**
+- Implement conversation state machine
+- Create context inference rules
+- Add menu number mapping (1→BOOK, 2→CANCEL, etc.)
+- Define intent priority levels (CRITICAL, HIGH, NORMAL, LOW)
+
+**Deliverables:**
+- ✅ Intent classifier (>85% accuracy)
+- ✅ Entity extraction system
+- ✅ Context-aware classification
+- ✅ 12 intent types defined
+
+**Testing:**
+- Test all 12 intent classifications
+- Test entity extraction accuracy
+- Test context-based inference
+- Test menu number selections
+- Test confidence scoring
+- Test ambiguous input handling
+
+---
+
+#### 4. Intent Handler System
+**Objective:** Process recognized intents and execute business logic
+
+**Sub-tasks:**
+- **4.1** Base Handler Architecture
+  - Create `BaseIntentHandler` abstract class
+  - Implement handler registry pattern
+  - Define handler execution pipeline
+  - Add error handling framework
+  
+- **4.2** Booking Flow Handler
+  - Multi-step booking conversation (5 steps)
+  - Doctor selection step
+  - Date/time selection step
+  - Confirmation step
+  - Integration with Google Sheets (placeholder for TASK-041)
+  
+- **4.3** Information Handlers
+  - Help menu handler (show main menu)
+  - Clinic info handler (address, hours, contact)
+  - Doctor info handler (list doctors, specialties)
+  - Appointment view handler (upcoming appointments)
+  
+- **4.4** Action Handlers
+  - Cancellation handler
+  - Reschedule handler
+  - Language switch handler
+  - Error/unknown handler
+
+**Booking Flow Steps:**
+1. `start` → Show doctors list
+2. `awaiting_doctor_selection` → Show available slots
+3. `awaiting_slot_selection` → Show confirmation
+4. `awaiting_confirmation` → Book appointment or cancel
+5. `completed` → Send confirmation message
+
+**Sub-subtasks (4.1):**
+- Define `IntentHandlerContext` interface
+- Define `IntentHandlerResult` interface
+- Create handler registry map
+- Implement handler execution with try-catch
+
+**Sub-subtasks (4.2):**
+- Implement state machine for booking flow
+- Create doctor list formatter
+- Create slot list formatter
+- Add confirmation message builder
+
+**Sub-subtasks (4.3):**
+- Fetch organization details from database
+- Format clinic information message
+- Fetch and format doctor list
+- Query upcoming appointments
+
+**Sub-subtasks (4.4):**
+- Implement appointment cancellation logic
+- Implement reschedule workflow
+- Add language preference toggle
+- Create helpful error messages
+
+**Deliverables:**
+- ✅ Base handler framework
+- ✅ Handler registry system
+- ✅ Booking flow handler (5 steps)
+- ✅ 8+ intent handlers
+
+**Testing:**
+- Test handler registration
+- Test handler execution
+- Test booking flow (all 5 steps)
+- Test error handling
+- Test state transitions
+- Test conversation abandonment
+
+---
+
+#### 5. Conversation State Management
+**Objective:** Maintain conversation context across messages (TDD 7.1.2 Step 5)
+
+**Sub-tasks:**
+- **5.1** Redis-based State Storage
+  - Implement conversation state schema
+  - Store state in Redis with TTL (24 hours)
+  - Track conversation history (last 10 turns)
+  - Implement state versioning
+  
+- **5.2** Session Management
+  - Generate unique session IDs
+  - Track active sessions per organization
+  - Implement session timeout (24 hours inactivity)
+  - Add session reset functionality
+  
+- **5.3** State Operations
+  - Create state (new conversation)
+  - Read state (retrieve context)
+  - Update state (modify conversation data)
+  - Delete state (end conversation)
+  - Reset state (start over)
+
+**State Schema:**
+```typescript
+{
+  sessionId: string;
+  organizationId: string;
+  phoneNumber: string;
+  language: 'en' | 'ur';
+  currentIntent: Intent;
+  step: string;
+  data: Record<string, any>;
+  history: ConversationTurn[];
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt: Date;
+  version: number;
+}
+```
+
+**Sub-subtasks (5.1):**
+- Create `ConversationStateManager` class
+- Define state TypeScript interfaces
+- Implement Redis CRUD operations
+- Add automatic expiration (24 hours)
+
+**Sub-subtasks (5.2):**
+- Generate session ID (timestamp + random)
+- Implement active session counter
+- Add timeout check on state retrieval
+- Create reset function (clear data, keep session)
+
+**Sub-subtasks (5.3):**
+- Implement getState() method
+- Implement setState() method
+- Implement deleteState() method
+- Implement addTurn() method (history tracking)
+
+**Deliverables:**
+- ✅ Conversation state manager
+- ✅ Redis-based state persistence
+- ✅ Session management system
+- ✅ State history tracking
+
+**Testing:**
+- Test state CRUD operations
+- Test state expiration (24 hours)
+- Test concurrent state updates
+- Test session ID generation
+- Test conversation history (10 turns max)
+- Test state reset functionality
+
+---
+
+#### 6. Response Generation System
+**Objective:** Generate appropriate multilingual responses (TDD 7.1.2 Step 6)
+
+**Sub-tasks:**
+- **6.1** Template System
+  - Create template library (30+ templates)
+  - Implement variable substitution
+  - Support rich formatting (emojis, bold, lists)
+  - Add template validation
+  
+- **6.2** Dynamic Content Generation
+  - Format doctor lists with availability
+  - Format time slot options
+  - Generate confirmation summaries
+  - Create error messages with recovery options
+  
+- **6.3** Interactive Elements
+  - Button-based responses (when supported)
+  - List-based menus (when supported)
+  - Quick reply options
+  - Fallback to text for basic phones
+
+**Template Categories:**
+- Welcome/Menu templates (5)
+- Booking flow templates (10)
+- Information templates (5)
+- Confirmation templates (5)
+- Error templates (5)
+
+**Sub-subtasks (6.1):**
+- Create `MessageTemplates` class
+- Define template structure (key-value pairs)
+- Implement Handlebars-style {{variable}} replacement
+- Add emoji support for visual appeal
+
+**Sub-subtasks (6.2):**
+- Create doctor list formatter with numbering
+- Create time slot formatter with date/time
+- Build confirmation message with all details
+- Design helpful error messages with next steps
+
+**Sub-subtasks (6.3):**
+- Implement WhatsApp button message format
+- Implement list message format
+- Add quick reply suggestions
+- Fallback to numbered text menus
+
+**Deliverables:**
+- ✅ Template library (30+ templates)
+- ✅ Variable substitution system
+- ✅ Dynamic content generators
+- ✅ Interactive message support
+
+**Testing:**
+- Test template rendering (all templates)
+- Test variable substitution
+- Test both languages
+- Test emoji rendering
+- Test interactive elements
+- Test text fallbacks
+
+---
+
+#### 7. Message Processing Orchestrator
+**Objective:** Coordinate all components into unified processing pipeline
+
+**Sub-tasks:**
+- **7.1** Main Message Processor
+  - Receive message from queue
+  - Detect language
+  - Classify intent
+  - Load conversation state
+  - Execute handler
+  - Save updated state
+  - Send response
+  
+- **7.2** Error Handling & Retry
+  - Catch all processing errors
+  - Log errors with context
+  - Determine retry eligibility
+  - Send user-friendly error messages
+  - Implement circuit breaker pattern
+  
+- **7.3** Performance Monitoring
+  - Track processing duration
+  - Log performance warnings (>3 seconds)
+  - Monitor queue depth
+  - Alert on failure rate >5%
+
+**Processing Pipeline (7 steps from TDD 7.1.2):**
+1. **Receive Webhook** → Validate signature (TASK-039)
+2. **Parse Message** → Extract content (TASK-039)
+3. **Language Detection** → Determine language (TASK-040)
+4. **Intent Recognition** → Classify intent (TASK-040)
+5. **Business Logic** → Execute handler (TASK-040)
+6. **Response Generation** → Create response (TASK-040)
+7. **Send Message** → Deliver via API (TASK-039)
+
+**Sub-subtasks (7.1):**
+- Create `MessageProcessor` orchestrator class
+- Implement sequential pipeline execution
+- Add progress updates (10%, 50%, 100%)
+- Return processing result
+
+**Sub-subtasks (7.2):**
+- Wrap pipeline in try-catch blocks
+- Log errors with full context (org, phone, message)
+- Check error type for retry eligibility
+- Send bilingual error messages to users
+
+**Sub-subtasks (7.3):**
+- Add timestamp tracking (start/end)
+- Log warning if >3000ms
+- Emit metrics to monitoring system
+- Configure alerting thresholds
+
+**Deliverables:**
+- ✅ Message processor orchestrator
+- ✅ Complete 7-step pipeline
+- ✅ Error handling framework
+- ✅ Performance monitoring
+
+**Testing:**
+- Test end-to-end message processing
+- Test error scenarios (all types)
+- Test retry logic
+- Test performance under load
+- Test concurrent message processing
+- Test pipeline stages independently
+
+---
+
+## ✅ Overall Deliverables
+
+**Core Components:**
+1. ✅ Bull Queue infrastructure with Redis
+2. ✅ Language detection engine (English/Urdu)
+3. ✅ Intent classification system (12 intents)
+4. ✅ Intent handler framework (8+ handlers)
+5. ✅ Conversation state management (Redis)
+6. ✅ Response generation system (30+ templates)
+7. ✅ Message processing orchestrator
+
+**APIs:**
+- 5 queue management endpoints
+- Language preference APIs
+- State management APIs
+
+**Documentation:**
+- Architecture documentation
+- API reference
+- Error handling guide
+- Testing guide
+
+---
+
+## 🧪 Testing Requirements
+
+### Unit Tests (100+ tests)
+- Queue operations (10 tests)
+- Language detection (15 tests)
+- Intent classification (20 tests)
+- Entity extraction (10 tests)
+- Handler execution (20 tests)
+- State management (15 tests)
+- Template rendering (10 tests)
+
+### Integration Tests (20+ tests)
+- End-to-end message processing (5 tests)
+- Webhook to queue integration (3 tests)
+- Multi-step conversations (5 tests)
+- Error recovery flows (3 tests)
+- Concurrent user handling (4 tests)
+
+### Performance Tests
+- Process 50 messages/second
+- Verify <3 second response time
+- Test with 1000+ queued messages
+- Monitor memory usage
+
+### Acceptance Tests
+- Complete booking flow (English)
+- Complete booking flow (Urdu)
+- Language switching mid-conversation
+- Error recovery scenarios
+- Menu navigation
+
+---
+
+## 📈 Success Criteria
+
+1. ✅ **Performance:** All messages processed in <3 seconds (PERF-001)
+2. ✅ **Accuracy:** Language detection >90% accurate
+3. ✅ **Accuracy:** Intent classification >85% accurate
+4. ✅ **Reliability:** Queue failure rate <5%
+5. ✅ **Scale:** Handle 50+ concurrent messages
+6. ✅ **Quality:** 100+ unit tests passing (>95%)
+7. ✅ **Quality:** All integration tests passing
+8. ✅ **Requirements:** All REQ-WA-001, REQ-WA-002, REQ-WA-003, REQ-WA-007 satisfied
+
+---
+
+## 🔗 Related Tasks
+
+**Prerequisites (Must Complete First):**
+- ✅ TASK-039: WhatsApp Business API Configuration
+- ✅ TASK-033: WhatsApp message routing (17/17 tests)
+- ✅ TASK-032: Multi-tenant data isolation
+- ✅ TASK-023: Google Sheets integration
+
+**Dependent Tasks (Require This Task):**
+- ⏳ TASK-040A: Notification settings & cost control
+- ⏳ TASK-041: Appointment booking to Google Sheets
+- ⏳ TASK-042: Automated reminders from Google Sheets
+
+**Related Documents:**
+- `DrSync_SRS.md` - Requirements (Section 3.3)
+- `DrSync_TDD.md` - Architecture (Section 7.1)
+- `DrSync_Task_Tracking.md` - Project plan
+- `TASK-039_WhatsApp_API_Integration_Detailed_Plan.md`
+- `NOTIFICATION_SETTINGS_FEATURE_SPEC.md` (TASK-040A)
+
+---
+
+## 📝 Implementation Notes
+
+**Technology Stack:**
+- Node.js 18+ with TypeScript
+- Bull Queue for message processing
+- Redis 7.0+ for caching and queues
+- Express.js for APIs
+- PostgreSQL for metadata
+- Google Sheets API for appointment data
+
+**Key Design Decisions:**
+1. **Async Processing:** Use Bull Queue to respond to Meta <20 seconds
+2. **State Management:** Redis for fast conversation state (24h TTL)
+3. **Language Detection:** Simple Unicode-based (no ML required)
+4. **Intent Classification:** Keyword + pattern matching (no NLP library)
+5. **Error Handling:** Graceful degradation with user-friendly messages
+
+**Performance Targets:**
+- Queue processing: <3 seconds per message
+- Webhook response: <20 seconds
+- Concurrent messages: 50/second (WhatsApp limit: 80/second)
+- Queue capacity: Handle 1000+ messages
+- Failure rate: <5%
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** October 14, 2025  
+**Source:** DrSync_Task_Tracking.md (Lines 1029-1034)  
+**Author:** DrSync Development Team
