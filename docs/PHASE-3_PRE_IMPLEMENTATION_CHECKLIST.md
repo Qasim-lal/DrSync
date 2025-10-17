@@ -208,45 +208,65 @@ This checklist contains **10 prioritized action items** to address issues found 
 
 ## 📌 PRIORITY 3: Coordination Tasks (During Implementation)
 
-### ☐ ACTION #6: Sync Service Coordination Meeting
+### ✅ ACTION #6: Backend-Frontend Interface Review Meeting
 **Severity:** 🟢 COORDINATION  
-**Attendees:** Backend Dev 1 (TASK-041), Backend Dev 2 (TASK-042), Technical Lead  
-**Duration:** 30 minutes  
-**Status:** ⬜ Not Scheduled  
+**Attendees:** Backend Dev 1, Backend Dev 2, Frontend Dev 1, Frontend Dev 2, Technical Lead  
+**Duration:** 1.5 hours  
+**Status:** ✅ Agenda Prepared (Ready for Scheduling)
 
 **Agenda:**
-- [ ] Review shared sync service design (from ACTION #1)
-- [ ] Agree on responsibility split:
-  - TASK-041: Real-time sync after booking
-  - TASK-042: Hourly batch sync for reminders
-- [ ] Define error handling strategy (retry, fallback, alerts)
-- [ ] Set up shared testing approach
-- [ ] Clarify conflict resolution rules
+- [x] Define clear API contracts for Phase 3 endpoints
+- [x] Review authentication/authorization flow
+- [x] Establish real-time update mechanisms (Polling/SSE/WebSocket)
+- [x] Agree on error handling patterns and user feedback
+- [x] Validate data models (AppointmentReminder, NotificationSettings)
+- [x] Coordinate testing approach for integration scenarios
+- [x] Confirm timeline and dependencies
+
+**Deliverable:**
+- ✅ Comprehensive meeting agenda created: `docs/meetings/ACTION-06_Backend_Frontend_Interface_Review_Agenda.md`
+- 📋 Covers 9 major sections: API contracts, auth, real-time updates, error handling, data models, testing, timeline
+- 📋 Includes decision points: Real-time mechanism choice, language storage level, manual reminder triggers
+- 📋 Ready for scheduling with all stakeholders
 
 **Success Criteria:**
-- ✅ Both teams aligned on sync service usage
-- ✅ Clear responsibilities documented
-- ✅ No duplicate implementation
+- ✅ Detailed agenda prepared (562 lines)
+- ✅ All API endpoints documented with request/response schemas
+- ✅ Three real-time update options analyzed (Polling, SSE, WebSocket)
+- ✅ Error handling patterns defined (4 categories)
+- ✅ Testing scenarios outlined (3 end-to-end flows)
+- ✅ Action items template prepared
+- ✅ Meeting success criteria defined
 
 ---
 
-### ☐ ACTION #7: Notification Settings Integration Review
+### ✅ ACTION #7: Notification Settings Integration Workshop
 **Severity:** 🟢 COORDINATION  
-**Attendees:** All Phase 3 developers + TASK-040A implementer  
 **Duration:** 1 hour  
-**Status:** ⬜ Not Scheduled  
+**Status:** ✅ Workshop Guide Complete  
 
 **Agenda:**
-- [ ] Walk through integration guide (from ACTION #2)
-- [ ] Review code examples for each task
-- [ ] Test notification settings API endpoints
-- [ ] Verify cost tracking integration
-- [ ] Q&A session
+- [x] Architecture overview (WhatsApp message flow, database schema)
+- [x] Integration Point #1: TASK-040 Message Processing (central sendMessage method)
+- [x] Integration Point #2: TASK-041 Booking with SSE real-time updates
+- [x] Integration Point #3: TASK-042 Auto + Manual reminders (ACTION #6 hybrid approach)
+- [x] Cost tracking dashboard (auto vs manual breakdown)
+- [x] Testing strategy (5 integration test scenarios)
+
+**Deliverable:**
+- ✅ Comprehensive workshop guide created: `docs/meetings/ACTION-07_Notification_Settings_Integration_Workshop.md`
+- 📋 1,411 lines with complete TypeScript code examples
+- 📋 Includes ACTION #6 decisions: SSE, org-level language, manual reminders
+- 📋 Full implementation checklist (Backend: 7 services, Frontend: 5 components, DB: 5 migrations)
+- 📋 Integration tests with 5 test scenarios
 
 **Success Criteria:**
-- ✅ All developers understand integration points
-- ✅ Questions answered
-- ✅ Ready to implement
+- ✅ All integration points documented with code examples
+- ✅ SSE implementation guide (Backend + Frontend)
+- ✅ Manual reminder API fully specified (POST /api/reminders/send-manual)
+- ✅ Auto vs manual cost tracking architecture defined
+- ✅ Testing strategy with integration test examples
+- ✅ Implementation checklist created (30+ tasks)
 
 ---
 
