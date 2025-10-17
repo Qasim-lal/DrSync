@@ -51,7 +51,7 @@ Implement the complete WhatsApp message processing pipeline that handles incomin
 - **1.2** Queue Worker Implementation
   - Create message processing worker with concurrency (5 concurrent jobs)
   - Implement job progress tracking (10%, 100%)
-  - Add performance monitoring (<3 second requirement)
+  - Add performance monitoring (<1 second target for TASK-040)
   - Implement graceful shutdown (SIGTERM handling)
   
 - **1.3** Queue Management API
@@ -92,23 +92,47 @@ Implement the complete WhatsApp message processing pipeline that handles incomin
   - Add confidence scoring (0.0 to 1.0)
   - Handle mixed language text
   
-- **2.2** History-based Detection
-  - Detect language from last 5 user messages
+- **2.2** Organization-Level Language Preference with Auto-Switch (ACTION #6 Decision)
+  - **Step 1:** Check organization's language setting from NotificationSettings
+  - **Step 2:** Detect language from current message using Unicode detection
+  - **Step 3:** If detected language ≠ org default AND confidence >0.8:
+    - **AUTO-SWITCH** to detected language (seamless UX)
+    - Store in Redis: `conversation:language:{orgId}:{phone}` (TTL: 30 min)
+    - Store in Patient profile: `preferredLanguage` field (permanent)
+  - **Step 4:** If no strong detection, use org default
+  - **Rationale:** Seamless UX while respecting patient's preferred language
+  
+- **2.3** History-based Detection (Fallback)
+  - Detect language from last 5 user messages (if org default not set)
   - Cache detected language in Redis (30 days TTL)
   - Implement language preference API
   - Sync preferences to Google Sheets
   
-- **2.3** Bilingual Message Templates
+- **2.4** Bilingual Message Templates with Main Menu Toggle
   - Create message templates for both languages
   - Implement template variable substitution
   - Add language switching capability (user command)
   - Store user language preference
+  - **Main Menu with Language Toggle:**
+    ```
+    📋 *Main Menu / مین مینو*
+    
+    1️⃣ Book Appointment / اپوائنٹمنٹ بک کریں
+    2️⃣ My Appointments / میری اپوائنٹمنٹس
+    3️⃣ Cancel/Reschedule / منسوخ/دوبارہ شیڈول
+    4️⃣ Clinic Info / کلینک کی معلومات
+    🌐 Change Language / زبان تبدیل کریں
+    
+    Reply with a number or command.
+    نمبر یا کمانڈ کے ساتھ جواب دیں۔
+    ```
 
-- **2.4** Language Detection Strategy (Added in ACTION #5 - Pre-Implementation Checklist)
+- **2.5** Language Detection Strategy (Added in ACTION #5 - Pre-Implementation Checklist)
   - Define comprehensive detection algorithm
   - Handle ambiguous cases with user prompts
   - Implement conversation context management with Redis TTL
   - Add test cases for all detection scenarios
+  - **UPDATE (ACTION #6):** Prioritize organization-level language setting first
 
 **Sub-subtasks (2.1):**
 - Create `LanguageDetector` service class
@@ -402,8 +426,15 @@ async function saveLanguagePreference(
 - **3.3** Context-aware Classification
   - Track conversation state
   - Infer intent from current conversation step
-  - Handle menu number selections (1-5)
+  - Handle menu number selections (0-4, 🌐)
   - Implement intent priority system
+
+**Menu Number Mapping:**
+- 0 or 🌐 → `LANGUAGE_MENU_SELECT`
+- 1 → `BOOK_APPOINTMENT`
+- 2 → `VIEW_APPOINTMENTS`
+- 3 → `CANCEL_APPOINTMENT` or `RESCHEDULE_APPOINTMENT`
+- 4 → `GET_CLINIC_INFO`
 
 **Intent Types:**
 1. `BOOK_APPOINTMENT` - Book new appointment
@@ -416,8 +447,9 @@ async function saveLanguagePreference(
 8. `CONFIRM_APPOINTMENT` - Confirm booking
 9. `CHECK_STATUS` - Check appointment status
 10. `HELP_MENU` - Show main menu
-11. `SWITCH_LANGUAGE` - Change language
-12. `UNKNOWN` - Unrecognized intent
+11. `SWITCH_LANGUAGE` - Change language (text command)
+12. `LANGUAGE_MENU_SELECT` - Language toggle from menu (0/🌐)
+13. `UNKNOWN` - Unrecognized intent
 
 **Sub-subtasks (3.1):**
 - Create `IntentClassifier` service class
@@ -441,15 +473,16 @@ async function saveLanguagePreference(
 - ✅ Intent classifier (>85% accuracy)
 - ✅ Entity extraction system
 - ✅ Context-aware classification
-- ✅ 12 intent types defined
+- ✅ 13 intent types defined (includes LANGUAGE_MENU_SELECT)
 
 **Testing:**
-- Test all 12 intent classifications
+- Test all 13 intent classifications (includes LANGUAGE_MENU_SELECT)
 - Test entity extraction accuracy
 - Test context-based inference
-- Test menu number selections
+- Test menu number selections (0-4, 🌐)
 - Test confidence scoring
 - Test ambiguous input handling
+- Test language toggle from menu
 
 ---
 
@@ -479,7 +512,15 @@ async function saveLanguagePreference(
 - **4.4** Action Handlers
   - Cancellation handler
   - Reschedule handler
-  - Language switch handler
+  - **Language switch handler (enhanced):**
+    - Handle menu option 0/🌐 selection
+    - Handle text commands ("LANG", "زبان تبدیل کریں")
+    - Show bilingual language selection menu
+    - Parse user selection (1 = English, 2 = Urdu)
+    - Update Redis cache (TTL: 30 min)
+    - Update Patient.preferredLanguage (permanent)
+    - Send confirmation in new language
+    - Return to main menu
   - Error/unknown handler
 
 **Booking Flow Steps:**
@@ -688,10 +729,15 @@ async function saveLanguagePreference(
   - Implement circuit breaker pattern
   
 - **7.3** Performance Monitoring
-  - Track processing duration
-  - Log performance warnings (>3 seconds)
+  - Track processing duration (component-level timing)
+  - Log performance warnings (>1 second for TASK-040)
   - Monitor queue depth
   - Alert on failure rate >5%
+  - Emit detailed timing metrics:
+    - Language detection time
+    - Intent classification time
+    - Handler execution time
+    - Response generation time
 
 **Processing Pipeline (7 steps from TDD 7.1.2):**
 1. **Receive Webhook** → Validate signature (TASK-039)
@@ -736,16 +782,78 @@ async function saveLanguagePreference(
 
 ---
 
+#### 8. Real-Time Updates via Server-Sent Events (SSE)
+**Objective:** Emit real-time events for message processing lifecycle to enable live dashboard updates
+
+**Sub-tasks:**
+- **8.1** SSE Event Emitter Setup
+  - Create `MessageEventsService` class
+  - Initialize EventEmitter for message lifecycle
+  - Define event payload schemas
+  - Implement organization-scoped event filtering
+  
+- **8.2** Message Processing Events
+  - Emit `message:received` when webhook receives message
+  - Emit `message:processing` when queue worker starts
+  - Emit `message:responded` when response sent to WhatsApp
+  - Emit `message:failed` on processing error
+  
+- **8.3** SSE API Endpoint
+  - Create `GET /api/events/messages/:organizationId/stream`
+  - Implement SSE headers and keep-alive (30s heartbeat)
+  - Filter events by organization ID (multi-tenant)
+  - Add JWT authentication
+
+**Event Payload Schema:**
+```typescript
+interface MessageEvent {
+  eventType: 'message:received' | 'message:processing' | 'message:responded' | 'message:failed';
+  organizationId: string;
+  phoneNumber: string;
+  messageId: string;
+  timestamp: string; // ISO 8601
+  data: {
+    intent?: string;
+    language?: 'en' | 'ur';
+    processingTimeMs?: number;
+    error?: string;
+  };
+}
+```
+
+**Integration Points:**
+- Webhook Controller: Emit `message:received` after validation
+- Queue Worker: Emit `message:processing` at worker start
+- Message Processor: Emit `message:responded` after successful send
+- Error Handler: Emit `message:failed` on processing error
+
+**Deliverables:**
+- ✅ MessageEventsService class
+- ✅ 4 event types (received, processing, responded, failed)
+- ✅ SSE API endpoint with authentication
+- ✅ Organization-scoped filtering
+
+**Testing:**
+- Test SSE connection establishment
+- Test event emission on message receive
+- Test event filtering by organization
+- Test SSE heartbeat mechanism (30s)
+- Test multiple concurrent SSE clients
+- Test reconnection handling
+
+---
+
 ## ✅ Overall Deliverables
 
 **Core Components:**
 1. ✅ Bull Queue infrastructure with Redis
 2. ✅ Language detection engine (English/Urdu)
-3. ✅ Intent classification system (12 intents)
+3. ✅ Intent classification system (13 intents - includes LANGUAGE_MENU_SELECT)
 4. ✅ Intent handler framework (8+ handlers)
 5. ✅ Conversation state management (Redis)
 6. ✅ Response generation system (30+ templates)
 7. ✅ Message processing orchestrator
+8. ✅ Real-time SSE events for message lifecycle
 
 **APIs:**
 - 5 queue management endpoints
@@ -795,14 +903,16 @@ async function saveLanguagePreference(
 
 ## 📈 Success Criteria
 
-1. ✅ **Performance:** All messages processed in <3 seconds (PERF-001)
-2. ✅ **Accuracy:** Language detection >90% accurate
-3. ✅ **Accuracy:** Intent classification >85% accurate
-4. ✅ **Reliability:** Queue failure rate <5%
-5. ✅ **Scale:** Handle 50+ concurrent messages
-6. ✅ **Quality:** 100+ unit tests passing (>95%)
-7. ✅ **Quality:** All integration tests passing
-8. ✅ **Requirements:** All REQ-WA-001, REQ-WA-002, REQ-WA-003, REQ-WA-007 satisfied
+1. ✅ **Performance:** TASK-040 processes messages in <1 second (component target)
+2. ✅ **Performance:** End-to-end (TASK-040 + TASK-041) <3 seconds (PERF-001)
+3. ✅ **Accuracy:** Language detection >90% accurate
+4. ✅ **Accuracy:** Intent classification >85% accurate
+5. ✅ **Reliability:** Queue failure rate <5%
+6. ✅ **Scale:** Handle 50+ concurrent messages
+7. ✅ **Quality:** 100+ unit tests passing (>95%)
+8. ✅ **Quality:** All integration tests passing
+9. ✅ **Real-time:** SSE events working for all message lifecycle stages
+10. ✅ **Requirements:** All REQ-WA-001, REQ-WA-002, REQ-WA-003, REQ-WA-007 satisfied
 
 ---
 
@@ -846,7 +956,16 @@ async function saveLanguagePreference(
 5. **Error Handling:** Graceful degradation with user-friendly messages
 
 **Performance Targets:**
-- Queue processing: <3 seconds per message
+- **TASK-040 Message Processing: <1 second** (component target)
+  - Language detection: <100ms
+  - Intent classification: <200ms
+  - Handler execution: <500ms
+  - Response generation: <200ms
+  - Total: <1000ms
+- **End-to-End (TASK-040 + TASK-041): <3 seconds** (PERF-001)
+  - TASK-040 (message processing): <1s
+  - TASK-041 (booking transaction): <2s
+  - Total: <3s compliant
 - Webhook response: <20 seconds
 - Concurrent messages: 50/second (WhatsApp limit: 80/second)
 - Queue capacity: Handle 1000+ messages
@@ -854,7 +973,16 @@ async function saveLanguagePreference(
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 14, 2025  
+**Document Version:** 2.0  
+**Last Updated:** October 16, 2025  
+**Changes in v2.0:**
+- Added Section 8: Real-time SSE events for message lifecycle
+- Updated Section 2.2: Auto-switch language detection
+- Updated Section 2.4: Bilingual main menu with language toggle (🌐)
+- Updated Section 4.4: Enhanced language switch handler
+- Added Intent #12: LANGUAGE_MENU_SELECT
+- Updated performance targets: <1s for TASK-040, <3s end-to-end
+- Updated Success Criteria: Component-level performance targets
+
 **Source:** DrSync_Task_Tracking.md (Lines 1029-1034)  
 **Author:** DrSync Development Team

@@ -586,6 +586,271 @@ Implement WhatsApp-based appointment booking that writes directly to Google Shee
 
 ---
 
+#### 9. Real-Time Dashboard Updates (SSE) - ACTION #6 Decision
+**Objective:** Implement Server-Sent Events for real-time appointment notifications to dashboard
+
+**Sub-tasks:**
+
+- **9.1** EventEmitter Infrastructure
+  - Create global `appointmentEmitter` using Node.js EventEmitter
+  - Define event types: `appointment:created`, `appointment:updated`, `appointment:cancelled`, `appointment:rescheduled`
+  - Emit events after successful booking/updates/cancellations/reschedules
+  - Support organization-scoped events (`appointment:created:{orgId}`, etc.)
+  
+- **9.2** SSE Endpoint Implementation
+  - Create `GET /api/organizations/:orgId/appointments/stream` endpoint
+  - Setup SSE headers (Content-Type: text/event-stream, Cache-Control: no-cache)
+  - Authenticate user and validate organization access
+  - Listen to organization-specific appointment events
+  - Send events as JSON-formatted data
+  - Handle client disconnections and cleanup listeners
+  
+- **9.3** Booking/Cancel/Reschedule Flow Integration
+  - Emit `appointment:created:{orgId}` event after Google Sheets write success
+  - Emit `appointment:cancelled:{orgId}` event after cancellation write to Sheets
+  - Emit `appointment:rescheduled:{orgId}` event after reschedule write to Sheets
+  - Emit `appointment:updated:{orgId}` event after confirmation sent
+  - Update dashboard with all lifecycle events in real-time
+
+**Sub-subtasks (9.1):**
+- Import EventEmitter: `import { EventEmitter } from 'events';`
+- Create singleton: `export const appointmentEmitter = new EventEmitter();`
+- Set max listeners: `appointmentEmitter.setMaxListeners(0);` (unlimited)
+- Define event payload interfaces:
+  ```typescript
+  interface AppointmentCreatedEvent {
+    id: string;
+    patientName: string;
+    patientPhone: string;
+    doctorName: string;
+    date: string;
+    time: string;
+    status: 'booked' | 'confirmed';
+    source: 'whatsapp' | 'dashboard';
+    notificationSent: boolean;
+    createdAt: Date;
+  }
+  
+  interface AppointmentUpdatedEvent {
+    id: string;
+    notificationSent?: boolean;
+    status?: string;
+  }
+  
+  interface AppointmentCancelledEvent {
+    id: string;
+    patientName: string;
+    doctorName: string;
+    date: string;
+    time: string;
+    status: 'cancelled';
+    reason?: string;
+    cancelledAt: Date;
+  }
+  
+  interface AppointmentRescheduledEvent {
+    id: string;
+    patientName: string;
+    doctorName: string;
+    oldDate: string;
+    oldTime: string;
+    newDate: string;
+    newTime: string;
+    status: 'booked';
+    rescheduledAt: Date;
+  }
+  ```
+
+**Sub-subtasks (9.2):**
+- Create SSE endpoint in `backend/src/routes/appointments.ts`:
+  ```typescript
+  router.get(
+    '/organizations/:orgId/appointments/stream',
+    authenticate,
+    (req: Request, res: Response) => {
+      const { orgId } = req.params;
+      
+      // Verify organization access
+      if (req.user!.organizationId !== orgId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      
+      // Setup SSE headers
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      
+      // Send connection confirmation
+      res.write(`data: ${JSON.stringify({ type: 'connected' })}\\n\\n`);
+      
+      // Event handlers for all 4 event types
+      const createdHandler = (appointment: AppointmentCreatedEvent) => {
+        res.write(`data: ${JSON.stringify({ 
+          type: 'appointment:created', 
+          data: appointment 
+        })}\\\\n\\\\n`);
+      };
+      
+      const updatedHandler = (update: AppointmentUpdatedEvent) => {
+        res.write(`data: ${JSON.stringify({ 
+          type: 'appointment:updated', 
+          data: update 
+        })}\\\\n\\\\n`);
+      };
+      
+      const cancelledHandler = (cancellation: AppointmentCancelledEvent) => {
+        res.write(`data: ${JSON.stringify({ 
+          type: 'appointment:cancelled', 
+          data: cancellation 
+        })}\\\\n\\\\n`);
+      };
+      
+      const rescheduledHandler = (reschedule: AppointmentRescheduledEvent) => {
+        res.write(`data: ${JSON.stringify({ 
+          type: 'appointment:rescheduled', 
+          data: reschedule 
+        })}\\\\n\\\\n`);
+      };
+      
+      // Subscribe to all organization-specific event types
+      appointmentEmitter.on(`appointment:created:${orgId}`, createdHandler);
+      appointmentEmitter.on(`appointment:updated:${orgId}`, updatedHandler);
+      appointmentEmitter.on(`appointment:cancelled:${orgId}`, cancelledHandler);
+      appointmentEmitter.on(`appointment:rescheduled:${orgId}`, rescheduledHandler);
+      
+      // Cleanup on client disconnect
+      req.on('close', () => {
+        appointmentEmitter.removeListener(`appointment:created:${orgId}`, createdHandler);
+        appointmentEmitter.removeListener(`appointment:updated:${orgId}`, updatedHandler);
+        appointmentEmitter.removeListener(`appointment:cancelled:${orgId}`, cancelledHandler);
+        appointmentEmitter.removeListener(`appointment:rescheduled:${orgId}`, rescheduledHandler);
+        res.end();
+      });
+    }
+  );
+  ```
+
+**Sub-subtasks (9.3):**
+- In booking service, after Google Sheets write:
+  ```typescript
+  // After successful write to Google Sheets
+  const appointment = await googleSheets.createAppointment(appointmentData);
+  
+  // Sync to PostgreSQL (async)
+  await googleSheetsSyncService.syncAppointment(appointment.id, organizationId);
+  
+  // Emit SSE event for real-time dashboard update
+  appointmentEmitter.emit(`appointment:created:${organizationId}`, {
+    id: appointment.id,
+    patientName: appointment.patientName,
+    patientPhone: appointment.patientPhone,
+    date: appointment.date,
+    time: appointment.time,
+    status: 'confirmed',
+    source: 'whatsapp',
+    notificationSent: false,
+    createdAt: new Date()
+  });
+  
+  // Send confirmation message
+  const result = await messageProcessor.sendMessage(
+    organizationId,
+    appointment.patientPhone,
+    'booking_confirmation',
+    confirmationMessage
+  );
+  
+  // Emit update event after confirmation
+  if (result.sent) {
+    appointmentEmitter.emit(`appointment:updated:${organizationId}`, {
+      id: appointment.id,
+      notificationSent: true
+    });
+  }
+  ```
+
+**Deliverables:**
+- ✅ EventEmitter infrastructure with organization-scoped events
+- ✅ SSE endpoint: `/api/organizations/:orgId/appointments/stream`
+- ✅ 4 event types: created, updated, cancelled, rescheduled
+- ✅ Events emitted for all appointment lifecycle stages
+- ✅ Organization isolation (Org A events don't reach Org B clients)
+
+**Testing:**
+- Test SSE connection establishment and authentication
+- Test `appointment:created` event emission on new WhatsApp booking
+- Test `appointment:cancelled` event emission on cancellation
+- Test `appointment:rescheduled` event emission on reschedule
+- Test `appointment:updated` event emission on notification status update
+- Test organization isolation (concurrent connections from different orgs)
+- Test client reconnection after disconnect
+- Test multiple concurrent SSE connections per organization
+- Verify <1 second latency from booking to dashboard update (ACTION #6 requirement)
+- Test SSE connection cleanup on client disconnect
+- Test event data format and structure for all 4 event types
+
+**Frontend Integration (Implementation in Frontend tasks):**
+Frontend will use `useRealtimeAppointments` hook:
+```typescript
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/useToast';
+
+export function useRealtimeAppointments(organizationId: string) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const { showToast } = useToast();
+  
+  useEffect(() => {
+    const eventSource = new EventSource(
+      `/api/organizations/${organizationId}/appointments/stream`,
+      { withCredentials: true }
+    );
+    
+    eventSource.onopen = () => {
+      console.log('[SSE] Connected to appointment stream');
+    };
+    
+    eventSource.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      
+      if (message.type === 'appointment:new') {
+        setAppointments(prev => [message.data, ...prev]);
+        showToast({
+          title: 'New WhatsApp Booking',
+          description: `${message.data.patientName} - ${message.data.time}`,
+          variant: 'success'
+        });
+        new Audio('/notification.mp3').play();
+      }
+      
+      if (message.type === 'appointment:updated') {
+        setAppointments(prev => prev.map(apt => 
+          apt.id === message.data.id ? { ...apt, ...message.data } : apt
+        ));
+      }
+    };
+    
+    eventSource.onerror = (error) => {
+      console.error('[SSE] Connection error:', error);
+      eventSource.close();
+      setTimeout(() => window.location.reload(), 5000);
+    };
+    
+    return () => eventSource.close();
+  }, [organizationId]);
+  
+  return { appointments, setAppointments };
+}
+```
+
+**Architecture Decision Rationale (ACTION #6):**
+- **Why SSE over Polling:** Real-time updates (<1 second), lower server load, HTTP-friendly
+- **Why SSE over WebSocket:** Simpler implementation, unidirectional (sufficient for notifications), better firewall compatibility
+- **Organization Scoping:** Each organization has isolated event stream for security and performance
+- **Event Types:** Separate new/updated events allow Frontend to handle differently (toast vs silent update)
+
+---
+
 ## ✅ Overall Deliverables
 
 **Core Services:**
@@ -650,12 +915,17 @@ Implement WhatsApp-based appointment booking that writes directly to Google Shee
 - Booking across time zones
 - Family member disambiguation
 
-### Acceptance Tests (TESTING-030)
-- ✅ Test appointment booking creates correct Google Sheets entry
-- ✅ Verify appointment data syncs to PostgreSQL for messaging
-- ✅ Test booking conflicts are properly detected in Google Sheets
-- ✅ Validate WhatsApp confirmation messages are sent
-- ✅ Test booking failure scenarios and error handling
+### Acceptance Tests (TASK-041-ACC)
+- ✅ **TASK-041-ACC-001:** Appointment booking creates correct Google Sheets entry with all required fields
+- ✅ **TASK-041-ACC-002:** Appointment data syncs to PostgreSQL within 10 seconds for messaging
+- ✅ **TASK-041-ACC-003:** Booking conflicts detected and prevented via Redis slot locking
+- ✅ **TASK-041-ACC-004:** WhatsApp confirmation messages sent within 2 seconds of booking
+- ✅ **TASK-041-ACC-005:** Booking failure scenarios gracefully handled with user-friendly error messages
+- ✅ **TASK-041-ACC-006:** Family account booking correctly links to selected patient
+- ✅ **TASK-041-ACC-007:** Concurrent bookings prevented (no double-booking)
+- ✅ **TASK-041-ACC-008:** Cancellation updates Google Sheets and sends confirmation
+- ✅ **TASK-041-ACC-009:** Reschedule moves appointment to new slot with conflict detection
+- ✅ **TASK-041-ACC-010:** SSE events emitted for all appointment lifecycle events
 
 ---
 
@@ -664,13 +934,14 @@ Implement WhatsApp-based appointment booking that writes directly to Google Shee
 1. ✅ **Primary Storage:** All bookings write to Google Sheets first (100%)
 2. ✅ **No Double-Booking:** Slot locking prevents conflicts (100%)
 3. ✅ **Family Accounts:** Support multiple patients per phone (REQ-APPT-010)
-4. ✅ **Performance:** Booking completes within 3 seconds (PERF-001)
+4. ✅ **Performance:** Booking completes within 2 seconds (TASK-041 target, contributes to PERF-001 <3s end-to-end)
 5. ✅ **Reliability:** <1% booking failure rate
 6. ✅ **Sync:** PostgreSQL syncs within 10 seconds (async)
 7. ✅ **Confirmation:** 100% of successful bookings send confirmation (REQ-COMM-002)
-8. ✅ **Testing:** All TESTING-030 tests passing
-9. ✅ **Error Handling:** All error scenarios handled gracefully
-10. ✅ **Multi-tenant:** Complete isolation between organizations
+8. ✅ **Testing:** All TASK-041-ACC acceptance tests passing (10 tests)
+9. ✅ **Real-time:** SSE events for all appointment lifecycle stages (created, cancelled, rescheduled)
+10. ✅ **Error Handling:** All error scenarios handled gracefully
+11. ✅ **Multi-tenant:** Complete isolation between organizations
 
 ---
 
@@ -743,11 +1014,21 @@ WhatsApp Confirmation (via TASK-040)
 4. PostgreSQL sync can be delayed (async)
 
 **Performance Targets:**
-- Booking transaction: <3 seconds total (PERF-001)
+- **TASK-041 Booking Transaction: <2 seconds** (component target)
+  - Patient lookup: <300ms
+  - Slot lock acquisition: <100ms (Redis)
+  - Google Sheets write: <800ms
+  - PostgreSQL sync trigger: <100ms
+  - Confirmation message: <200ms
+  - Slot lock release: <50ms
+  - SSE event emission: <50ms
+  - Total: <1600ms typical, <2000ms maximum
+- **End-to-End (TASK-040 + TASK-041): <3 seconds** (PERF-001)
+  - TASK-040 (message processing): <1s
+  - TASK-041 (booking transaction): <2s
+  - Total: <3s compliant
 - Slot availability check: <500ms (PERF-004)
-- Google Sheets write: <1 second
-- Slot lock acquisition: <100ms (Redis)
-- Confirmation delivery: <2 seconds
+- Google Sheets write: <800ms (includes network + API)
 
 **Google Sheets Rate Limits:**
 - 100 requests per 100 seconds per user
@@ -781,7 +1062,15 @@ WhatsApp Confirmation (via TASK-040)
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 14, 2025  
+**Document Version:** 2.0  
+**Last Updated:** October 16, 2025  
+**Changes in v2.0:**
+- Updated Section 9.1: Added `appointment:cancelled` and `appointment:rescheduled` events
+- Updated Section 9.2: Event handlers for all 4 event types (created, updated, cancelled, rescheduled)
+- Updated Section 9.3: Integration for cancel/reschedule flows
+- Replaced TESTING-030 with TASK-041-ACC-001 to 010 (10 tests)
+- Updated performance targets: <2s for TASK-041, <3s end-to-end
+- Updated Success Criteria: Component-level performance and SSE events
+
 **Source:** DrSync_Task_Tracking.md (Lines 1080-1098)  
 **Author:** DrSync Development Team

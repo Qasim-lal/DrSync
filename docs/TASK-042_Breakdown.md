@@ -599,6 +599,403 @@ Implement automated reminder system that reads appointment data from Google Shee
 
 ---
 
+#### 9. Manual Reminder Sending (ACTION #6 Decision)
+**Objective:** Allow doctors to manually send reminders to selected appointments (hybrid auto + manual approach)
+
+**Rationale:** Doctors may disable auto-reminders to save costs but still want to send reminders manually to specific patients (VIP, critical appointments). Manual reminders work even when auto-reminders are disabled.
+
+**Sub-tasks:**
+
+- **9.1** Manual Reminder API Endpoint
+  - Create `POST /api/reminders/send-manual` endpoint
+  - Accept array of appointment IDs (max 100)
+  - Support reminder type selection (24H, 1H, CUSTOM)
+  - Return success/failure summary with cost breakdown
+  
+- **9.2** Bulk Reminder Sending Logic
+  - Iterate through selected appointments
+  - Fetch appointment and patient data
+  - Call WhatsAppMessageProcessor with `trigger='manual'`
+  - Track success/failure per appointment
+  - Calculate total cost (PKR 0.50 per message)
+  - Return detailed results
+  
+- **9.3** ReminderTrigger Enum and Database Schema
+  - Add `trigger` field to AppointmentReminder model
+  - Enum values: `AUTOMATIC` (default) | `MANUAL`
+  - Add `sentBy` field (user ID for audit trail)
+  - Add index on `trigger` for filtering
+  - Update message_cost_tracking to track trigger type
+  
+- **9.4** Cost Estimation and Budget Check
+  - Calculate estimated cost before sending
+  - Check current month budget usage
+  - Warn if over budget (but still allow - ACTION #6 decision)
+  - Log manual reminders separately for cost analytics
+  - Show auto vs manual breakdown in dashboard
+  
+- **9.5** Frontend Integration Points
+  - Bulk selection checkboxes in appointment list
+  - "Send Reminders" button (shows count)
+  - Cost confirmation modal before sending
+  - Toast notifications for success/failures
+  - Budget warning display if over limit
+
+**Sub-subtasks (9.1):**
+- Create endpoint in `backend/src/routes/reminders.ts`:
+  ```typescript
+  router.post('/send-manual', authenticate, async (req, res) => {
+    const { appointmentIds, reminderType, customMessage } = req.body;
+    const userId = req.user!.id;
+    const organizationId = req.user!.organizationId;
+    
+    // Validate max 100 appointments
+    if (appointmentIds.length > 100) {
+      return res.status(400).json({ error: 'Max 100 appointments per request' });
+    }
+    
+    // Send reminders...
+  });
+  ```
+- Request validation:
+  - `appointmentIds`: array of UUIDs, required, max 100
+  - `reminderType`: "REMINDER_24H" | "REMINDER_1H" | "CUSTOM", optional
+  - `customMessage`: string, optional (for CUSTOM type)
+- Response format:
+  ```json
+  {
+    "sent": 45,
+    "failed": 5,
+    "totalCost": 25.00,
+    "failedAppointments": [
+      { "appointmentId": "uuid", "patientName": "Ahmed", "reason": "invalid_phone" }
+    ],
+    "budgetWarning": false
+  }
+  ```
+
+**Sub-subtasks (9.2):**
+- Fetch appointments with patient data:
+  ```typescript
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      id: { in: appointmentIds },
+      organizationId // Ensure org isolation
+    },
+    include: { patient: true }
+  });
+  ```
+- Loop through appointments:
+  ```typescript
+  for (const appointment of appointments) {
+    try {
+      const message = customMessage || buildReminderMessage(appointment);
+      
+      const result = await messageProcessor.sendMessage(
+        organizationId,
+        appointment.patient.phone,
+        'appointment_reminder',
+        message,
+        'manual',  // trigger type (ACTION #6)
+        userId     // who sent it
+      );
+      
+      if (result.sent) {
+        results.sent++;
+        results.totalCost += result.cost;
+        
+        // Create reminder record
+        await prisma.appointmentReminder.create({
+          data: {
+            organizationId,
+            appointmentId: appointment.id,
+            reminderType: reminderType || 'MANUAL',
+            trigger: 'MANUAL',  // NEW FIELD
+            sentBy: userId,      // NEW FIELD
+            scheduledFor: new Date(),
+            sentAt: new Date(),
+            status: 'SENT',
+            cost: result.cost
+          }
+        });
+      }
+    } catch (error) {
+      results.failed++;
+      results.failedAppointments.push({
+        appointmentId: appointment.id,
+        patientName: appointment.patient.name,
+        reason: error.message
+      });
+    }
+  }
+  ```
+
+**Sub-subtasks (9.3):**
+- Update Prisma schema (`backend/prisma/schema.prisma`):
+  ```prisma
+  enum ReminderTrigger {
+    AUTOMATIC    // Scheduled by system (hourly job)
+    MANUAL       // Sent manually by doctor (ACTION #6)
+  }
+  
+  model AppointmentReminder {
+    id             String          @id @default(uuid())
+    organizationId String
+    appointmentId  String
+    reminderType   ReminderType
+    trigger        ReminderTrigger @default(AUTOMATIC)  // NEW
+    sentBy         String?         // User ID (for MANUAL) NEW
+    scheduledFor   DateTime
+    sentAt         DateTime?
+    status         ReminderStatus
+    messageId      String?
+    skipReason     String?
+    cost           Decimal?        @db.Decimal(10, 2)
+    
+    organization   Organization @relation(...)
+    appointment    Appointment @relation(...)
+    
+    @@index([organizationId, scheduledFor])
+    @@index([status, scheduledFor])
+    @@index([trigger])  // NEW INDEX
+  }
+  ```
+- Generate migration:
+  ```bash
+  npx prisma migrate dev --name add_manual_reminder_trigger
+  ```
+- Update MessageCostTracking:
+  ```prisma
+  model MessageCostTracking {
+    id             String   @id @default(uuid())
+    organizationId String
+    messageType    String
+    trigger        String   // "automatic" | "manual" NEW
+    sent           Boolean
+    skipReason     String?
+    cost           Decimal? @db.Decimal(10, 2)
+    sentAt         DateTime @default(now())
+    
+    @@index([organizationId, sentAt])
+    @@index([trigger])  // NEW INDEX
+  }
+  ```
+
+**Sub-subtasks (9.4):**
+- Check budget before sending:
+  ```typescript
+  const estimatedCost = appointments.length * 0.50; // PKR
+  const budgetCheck = await costTracking.checkBudget(organizationId);
+  
+  if (budgetCheck.overBudget) {
+    // Warn but allow (ACTION #6 decision)
+    console.warn(`Org ${organizationId} over budget but allowing manual send`);
+    results.budgetWarning = true;
+  }
+  ```
+- Log manual reminders with trigger:
+  ```typescript
+  await costTracking.logSentMessage({
+    organizationId,
+    messageType: 'appointment_reminder',
+    trigger: 'manual',  // Separate from 'automatic'
+    cost: 0.50,
+    messageId: result.messageId,
+    sentBy: userId
+  });
+  ```
+- Cost analytics endpoint:
+  ```typescript
+  GET /api/analytics/notification-costs
+  Response: {
+    automatic: { sent: 150, cost: 75.00, skipped: 50, savings: 25.00 },
+    manual: { sent: 25, cost: 12.50 },
+    total: { sent: 175, cost: 87.50, skipped: 50, savings: 25.00 }
+  }
+  ```
+
+**Sub-subtasks (9.5):**
+- Frontend appointment list with bulk selection:
+  ```typescript
+  <AppointmentTable>
+    <BulkActions>
+      {selectedAppointments.length > 0 && (
+        <Button onClick={handleSendReminders}>
+          📱 Send Reminders ({selectedAppointments.length})
+        </Button>
+      )}
+    </BulkActions>
+    
+    <AppointmentRow>
+      <Checkbox 
+        checked={selected}
+        onChange={(e) => handleSelect(appointment.id)}
+      />
+      <PatientName>{appointment.patientName}</PatientName>
+      <DateTime>{appointment.date} - {appointment.time}</DateTime>
+      <Actions>
+        <Button onClick={() => sendSingleReminder(appointment.id)}>
+          Send Reminder
+        </Button>
+      </Actions>
+    </AppointmentRow>
+  </AppointmentTable>
+  ```
+- Cost confirmation modal:
+  ```typescript
+  <SendReminderModal>
+    <p>You are about to send {count} reminders.</p>
+    
+    <CostEstimate>
+      Estimated Cost: PKR {(count * 0.50).toFixed(2)}
+      Current month: PKR {currentSpend} / PKR {budget}
+    </CostEstimate>
+    
+    {overBudget && (
+      <Warning>
+        ⚠️ Warning: You are over budget. Manual send still allowed.
+      </Warning>
+    )}
+    
+    <Actions>
+      <Button onClick={onCancel}>Cancel</Button>
+      <Button onClick={onConfirm} loading={sending}>
+        Confirm & Send
+      </Button>
+    </Actions>
+  </SendReminderModal>
+  ```
+
+**Deliverables:**
+- ✅ Manual reminder API endpoint (`POST /api/reminders/send-manual`)
+- ✅ Bulk reminder sending (max 100 appointments)
+- ✅ ReminderTrigger enum (AUTOMATIC | MANUAL)
+- ✅ `sentBy` audit trail field
+- ✅ Cost estimation and budget check
+- ✅ Separate cost tracking (auto vs manual)
+- ✅ Frontend integration specification
+
+**Testing:**
+- Test manual reminder endpoint with single appointment
+- Test bulk send (50 appointments)
+- Test max limit enforcement (reject >100)
+- Test budget check and warning (but still allow)
+- Test `sentBy` audit trail (verify user ID saved)
+- Test auto reminders disabled, manual still works (KEY TEST)
+- Test cost tracking separation:
+  - Auto reminders: `trigger='AUTOMATIC'`
+  - Manual reminders: `trigger='MANUAL'`
+- Test organization isolation (can't send to other org's appointments)
+- Test failed appointment handling (show in failedAppointments list)
+- Test custom message support
+- Test reminder type selection (24H, 1H, CUSTOM)
+
+**Business Rules (ACTION #6):**
+1. ✅ Manual reminders **always allowed** (even if auto-reminders disabled)
+2. ✅ Budget check **warns but doesn't block** manual sends
+3. ✅ Max 100 appointments per bulk request
+4. ✅ Track who sent (audit trail with `sentBy`)
+5. ✅ Show cost estimate before sending
+6. ✅ Track auto vs manual costs separately
+7. ✅ Manual reminders count toward monthly usage but don't block
+
+**Use Case Example:**
+```
+Scenario: Cost-conscious doctor
+1. Doctor disables auto-reminders (saves PKR 500/month)
+2. Doctor manually selects 10 VIP patients
+3. Doctor clicks "Send Reminders"
+4. System shows: "Cost: PKR 5.00, Current: PKR 150 / PKR 500"
+5. Doctor confirms
+6. System sends 10 reminders with trigger='MANUAL', sentBy=doctorId
+7. Cost analytics shows: Auto: PKR 0, Manual: PKR 5, Total: PKR 5
+8. Result: Doctor saves PKR 495 but still reminds important patients
+```
+
+**Integration with Other Tasks:**
+- **TASK-040:** Uses WhatsAppMessageProcessor.sendMessage() with `trigger` parameter
+- **TASK-040A:** Checks notification settings but manual always allowed
+- **TASK-041:** Frontend sends bulk appointment IDs from booking list
+- **ACTION #7:** Complete integration code in workshop document
+
+---
+
+#### 9. Real-Time Updates via Server-Sent Events (SSE)
+**Objective:** Emit real-time events for reminder lifecycle to enable live dashboard monitoring
+
+**Sub-tasks:**
+- **9.1** Reminder Events Service Integration
+  - Reuse `AppointmentEventsService` from TASK-041
+  - Add reminder-specific event types
+  - Implement organization-scoped filtering
+  - Connect to existing SSE endpoint
+  
+- **9.2** Reminder Lifecycle Events
+  - Emit `reminder:scheduled` when reminder job queued
+  - Emit `reminder:sent` when WhatsApp message sent successfully
+  - Emit `reminder:delivered` when delivery confirmed by Meta
+  - Emit `reminder:failed` when sending fails (retry or give up)
+
+**Event Payload Schema:**
+```typescript
+interface ReminderEvent {
+  eventType: 'reminder:scheduled' | 'reminder:sent' | 'reminder:delivered' | 'reminder:failed';
+  organizationId: string;
+  appointmentId: string;
+  reminderId: string;
+  timestamp: string; // ISO 8601
+  data: {
+    patientName: string;
+    patientPhone: string;
+    doctorName: string;
+    appointmentDate: string;
+    appointmentTime: string;
+    reminderType: '24h' | 'followup' | 'medication' | 'manual';
+    language: 'en' | 'ur';
+    scheduledFor?: string; // ISO 8601 (for scheduled)
+    sentAt?: string; // ISO 8601 (for sent)
+    deliveredAt?: string; // ISO 8601 (for delivered)
+    error?: string; // Error message (for failed)
+    retryCount?: number; // Number of retry attempts
+  };
+}
+```
+
+**Event Emission Points:**
+
+1. **reminder:scheduled** - When Bull job queued (Section 2.2)
+2. **reminder:sent** - After WhatsApp message sent (Section 4.2)
+3. **reminder:delivered** - When delivery status received
+4. **reminder:failed** - When sending fails after retries (Section 7.2)
+
+**Integration with TASK-041 SSE:**
+- Reuse existing SSE endpoint: `GET /api/events/appointments/:organizationId/stream`
+- Extend event types to include reminder events
+- Share `AppointmentEventsService` class
+- Maintain organization-scoped filtering
+
+**Deliverables:**
+- ✅ 4 reminder event types (scheduled, sent, delivered, failed)
+- ✅ Event emission at all reminder lifecycle stages
+- ✅ Integration with existing SSE infrastructure
+- ✅ Organization-scoped event filtering
+
+**Testing:**
+- Test `reminder:scheduled` event when job queued
+- Test `reminder:sent` event after successful send
+- Test `reminder:delivered` event on delivery confirmation
+- Test `reminder:failed` event after max retries
+- Test event filtering by organization
+- Test multiple concurrent reminder events
+- Test SSE connection receives all event types
+
+**Performance Requirements:**
+- Event emission: <50ms overhead per event
+- No blocking of reminder sending process
+- Async event emission (fire-and-forget)
+
+---
+
 ## ✅ Overall Deliverables
 
 **Core Services:**
@@ -610,6 +1007,7 @@ Implement automated reminder system that reads appointment data from Google Shee
 6. ✅ Medication reminder system (recurring)
 7. ✅ Wellness check-in system
 8. ✅ Analytics and reporting
+9. ✅ Real-time SSE events for reminder lifecycle
 
 **APIs/Endpoints:**
 - `POST /api/reminders/schedule` - Schedule reminder
@@ -675,8 +1073,9 @@ Implement automated reminder system that reads appointment data from Google Shee
 6. ✅ **Effectiveness:** Show-up rates improve by >15%
 7. ✅ **Engagement:** >30% response rate on follow-ups
 8. ✅ **Reliability:** <2% system failure rate
-9. ✅ **Performance:** Process 1000 reminders/hour
-10. ✅ **Multi-tenant:** Complete organization isolation
+9. ✅ **Performance:** Process 1000 reminders/hour (Scheduling <1s, Sending <3s)
+10. ✅ **Real-time:** SSE events for all reminder lifecycle stages (scheduled, sent, delivered, failed)
+11. ✅ **Multi-tenant:** Complete organization isolation
 
 ---
 
@@ -797,7 +1196,13 @@ Track Delivery & Analytics
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** October 14, 2025  
+**Document Version:** 2.0  
+**Last Updated:** October 16, 2025  
+**Changes in v2.0:**
+- Added Section 9: Real-time SSE events for reminder lifecycle (scheduled, sent, delivered, failed)
+- Updated Overall Deliverables: Added SSE as core service #9
+- Updated Success Criteria: Added real-time SSE and performance breakdown
+- Integration with TASK-041 SSE infrastructure
+
 **Source:** DrSync_Task_Tracking.md (Lines 1101-1111)  
 **Author:** DrSync Development Team
