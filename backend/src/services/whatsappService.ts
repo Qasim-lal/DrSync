@@ -24,11 +24,14 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { Prisma } from '../generated/prisma';
 import logger from '../utils/logger';
 import getPrismaClient from './prisma';
 import googleSheetsService from './googleSheetsService';
+import { decryptData } from '../utils/encryption';
+import Queue, { Job } from 'bull';
+import Redis from 'ioredis';
 // import sheetsSyncService from './sheetsSyncService';
 
 // Types for WhatsApp operations
@@ -94,9 +97,53 @@ class WhatsAppService {
   private clients: Map<string, WhatsAppClient> = new Map();
   private activeSessions: Map<string, AppointmentBookingFlow> = new Map();
   private phoneToOrgMapping: Map<string, string> = new Map();
+  private messageQueue: Queue.Queue;
+  private redis: Redis;
+  private readonly RATE_LIMIT = 80; // WhatsApp Cloud API limit: 80 msg/sec
+  private readonly RATE_WINDOW = 1; // 1 second
+  private initializationPromise: Promise<void>;
   
   constructor() {
-    this.initializeClients();
+    // Initialize Redis for rate limiting
+    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    
+    // Initialize Bull Queue for message queueing
+    this.messageQueue = new Queue('whatsapp-messages', process.env.REDIS_URL || 'redis://localhost:6379', {
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    });
+    
+    // Process queued messages
+    this.messageQueue.process(async (job: Job) => {
+      const { organizationId, message } = job.data;
+      return await this.sendMessageDirect(organizationId, message);
+    });
+    
+    // Queue event handlers
+    this.messageQueue.on('completed', (job: Job, result: any) => {
+      logger.info(`Message queue job completed`, { jobId: job.id, result });
+    });
+    
+    this.messageQueue.on('failed', (job: Job | undefined, error: Error) => {
+      logger.error(`Message queue job failed`, { jobId: job?.id, error: error.message });
+    });
+    
+    // Initialize clients asynchronously but store the promise
+    this.initializationPromise = this.initializeClients();
+  }
+
+  /**
+   * Ensure clients are initialized before performing operations
+   */
+  private async ensureInitialized(): Promise<void> {
+    await this.initializationPromise;
   }
 
   /**
@@ -155,10 +202,13 @@ class WhatsAppService {
         throw new Error('Organization not found or WhatsApp phone number not configured');
       }
 
+      // Decrypt credentials if they're encrypted
+      const decryptedCredentials = this.decryptCredentials(credentials);
+
       const client: WhatsAppClient = {
         organizationId,
         phoneNumber: organization.whatsappPhoneNumber,
-        credentials,
+        credentials: decryptedCredentials,
         isActive: true,
         lastActivityAt: new Date()
       };
@@ -171,6 +221,65 @@ class WhatsAppService {
     } catch (error) {
       logger.error(`Error initializing WhatsApp client for organization ${organizationId}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Decrypt WhatsApp credentials
+   * Handles both encrypted and plain credentials for backward compatibility
+   */
+  private decryptCredentials(credentials: WhatsAppCredentials): WhatsAppCredentials {
+    try {
+      // Check if credentials are encrypted (contains ':' separator from IV:data format)
+      const needsDecryption = (value: string) => value && value.includes(':') && value.split(':').length === 2;
+
+      return {
+        ...credentials,
+        accessToken: needsDecryption(credentials.accessToken) 
+          ? decryptData(credentials.accessToken) 
+          : credentials.accessToken,
+        appSecret: needsDecryption(credentials.appSecret)
+          ? decryptData(credentials.appSecret)
+          : credentials.appSecret,
+        webhookVerifyToken: needsDecryption(credentials.webhookVerifyToken)
+          ? decryptData(credentials.webhookVerifyToken)
+          : credentials.webhookVerifyToken,
+      };
+    } catch (error) {
+      logger.error('Error decrypting credentials:', error);
+      // Return original credentials if decryption fails
+      return credentials;
+    }
+  }
+
+  /**
+   * Check rate limit for organization
+   * Returns true if within limit, false if limit exceeded
+   */
+  private async checkRateLimit(organizationId: string): Promise<boolean> {
+    try {
+      const key = `whatsapp:ratelimit:${organizationId}`;
+      const current = await this.redis.incr(key);
+      
+      // Set expiry on first increment
+      if (current === 1) {
+        await this.redis.expire(key, this.RATE_WINDOW);
+      }
+      
+      const withinLimit = current <= this.RATE_LIMIT;
+      
+      if (!withinLimit) {
+        logger.warn(`Rate limit exceeded for organization ${organizationId}`, {
+          current,
+          limit: this.RATE_LIMIT
+        });
+      }
+      
+      return withinLimit;
+    } catch (error) {
+      logger.error('Error checking rate limit:', error);
+      // Allow on error to avoid blocking messages
+      return true;
     }
   }
 
@@ -654,32 +763,85 @@ class WhatsAppService {
 
   /**
    * Send WhatsApp message using organization's credentials
+   * Handles rate limiting and queueing automatically
    */
   async sendMessage(organizationId: string, message: OutgoingMessage): Promise<MessageResponse> {
     try {
+      // Ensure clients are initialized
+      await this.ensureInitialized();
+      
+      // Check rate limit
+      const withinLimit = await this.checkRateLimit(organizationId);
+      
+      if (!withinLimit) {
+        // Queue message if rate limit exceeded
+        logger.info(`Queueing message due to rate limit`, { organizationId });
+        await this.messageQueue.add({ organizationId, message });
+        
+        return {
+          success: true,
+          error: 'Message queued due to rate limit'
+        };
+      }
+      
+      // Send directly if within rate limit
+      return await this.sendMessageDirect(organizationId, message);
+      
+    } catch (error) {
+      logger.error(`Error in sendMessage:`, error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Send WhatsApp message directly (no rate limit check)
+   * Used internally by queue processor and when rate limit already checked
+   */
+  private async sendMessageDirect(organizationId: string, message: OutgoingMessage): Promise<MessageResponse> {
+    try {
+      // Ensure clients are initialized
+      await this.ensureInitialized();
+      
       const client = this.clients.get(organizationId);
       if (!client) {
         throw new Error(`WhatsApp client not found for organization ${organizationId}`);
       }
 
+      const startTime = Date.now();
+
       const response = await axios.post(
         `https://graph.facebook.com/v18.0/${client.credentials.phoneNumberId}/messages`,
         {
           messaging_product: 'whatsapp',
+          recipient_type: 'individual',
           ...message
         },
         {
           headers: {
             'Authorization': `Bearer ${client.credentials.accessToken}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 10000 // 10 second timeout
         }
       );
 
+      const duration = Date.now() - startTime;
       const messageId = response.data?.messages?.[0]?.id;
       
       // Log outgoing message
       await this.logMessage({ ...message as any, organizationId }, 'OUTBOUND', messageId);
+      
+      // Track metrics
+      await this.trackMessageMetrics(organizationId, 'sent', duration);
+
+      logger.info('Message sent successfully', {
+        organizationId,
+        messageId,
+        duration: `${duration}ms`
+      });
 
       return {
         success: true,
@@ -687,7 +849,8 @@ class WhatsAppService {
       };
 
     } catch (error) {
-      logger.error(`Error sending WhatsApp message for organization ${organizationId}:`, error);
+      await this.handleWhatsAppError(error as AxiosError, organizationId, 'sendMessage');
+      
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -698,32 +861,42 @@ class WhatsAppService {
   /**
    * Log WhatsApp message to database
    */
-  private async logMessage(message: IncomingMessage, direction: 'INBOUND' | 'OUTBOUND', messageId?: string): Promise<void> {
+  private async logMessage(message: IncomingMessage | (OutgoingMessage & { organizationId: string }), direction: 'INBOUND' | 'OUTBOUND', messageId?: string): Promise<void> {
     try {
       const prisma = getPrismaClient();
       
       // Get patient ID, but allow null if patient doesn't exist
       const patientId = await this.getPatientIdByPhone(
-        message.organizationId!, 
-        direction === 'INBOUND' ? message.from : message.to
+        (message as any).organizationId!, 
+        direction === 'INBOUND' ? (message as IncomingMessage).from : (message as OutgoingMessage).to
       );
       
-      // Only include patientId if it exists to avoid foreign key constraint issues
+      // Handle different message structures for incoming vs outgoing
+      let messageType: string;
+      let content: string;
+      
+      if (direction === 'INBOUND') {
+        const incomingMsg = message as IncomingMessage;
+        messageType = incomingMsg.message.type.toUpperCase();
+        content = incomingMsg.message.text?.body || JSON.stringify(incomingMsg.message);
+      } else {
+        const outgoingMsg = message as OutgoingMessage;
+        messageType = outgoingMsg.type.toUpperCase();
+        content = outgoingMsg.text?.body || JSON.stringify(outgoingMsg);
+      }
+      
+      // Build message data with optional patientId
       const messageData: any = {
         id: uuidv4(),
-        messageType: message.message.type.toUpperCase() as any,
-        content: message.message.text?.body || JSON.stringify(message.message),
+        messageType: messageType as any,
+        content: content,
         direction: direction as any,
         status: 'SENT',
-        organizationId: message.organizationId!,
+        organizationId: (message as any).organizationId!,
         language: 'en',
-        ...(messageId && { whatsappMessageId: messageId })
+        ...(messageId && { whatsappMessageId: messageId }),
+        ...(patientId && { patientId }) // Only add patientId if it exists
       };
-      
-      // Only add patientId if we found a valid patient
-      if (patientId) {
-        messageData.patientId = patientId;
-      }
       
       await prisma.whatsAppMessage.create({ data: messageData });
     } catch (error) {
@@ -792,6 +965,89 @@ class WhatsAppService {
       });
       return patient?.id || null;
     } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Handle WhatsApp API errors
+   */
+  private async handleWhatsAppError(error: AxiosError, organizationId: string, context: string): Promise<void> {
+    const status = error.response?.status;
+    const errorData = error.response?.data as any;
+
+    logger.error(`WhatsApp API error in ${context}`, {
+      organizationId,
+      status,
+      errorCode: errorData?.error?.code,
+      errorMessage: errorData?.error?.message,
+      errorType: errorData?.error?.type,
+      errorDetails: errorData?.error?.error_data,
+      fullResponse: JSON.stringify(errorData),
+      context
+    });
+
+    // Handle specific error types
+    if (status === 429) {
+      logger.warn('Rate limit hit, messages will be queued');
+      await this.trackMessageMetrics(organizationId, 'rate_limited', 0);
+    } else if (status === 401) {
+      logger.error('Authentication failed - access token may be expired');
+      // TODO: Implement token refresh or notify admin
+    } else if (status && status >= 500) {
+      logger.error('WhatsApp API server error - will retry');
+    }
+  }
+
+  /**
+   * Track message metrics in Redis
+   */
+  private async trackMessageMetrics(organizationId: string, metricType: string, duration: number): Promise<void> {
+    try {
+      const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      // Increment message count by type
+      await this.redis.hincrby(`metrics:messages:${organizationId}:${date}`, metricType, 1);
+      
+      // Track response time (if applicable)
+      if (duration > 0) {
+        await this.redis.zadd(`metrics:response_times:${organizationId}`, Date.now(), duration);
+        
+        // Keep only last 1000 response times
+        await this.redis.zremrangebyrank(`metrics:response_times:${organizationId}`, 0, -1001);
+      }
+    } catch (error) {
+      logger.error('Error tracking metrics:', error);
+      // Don't throw - metrics failure shouldn't break message flow
+    }
+  }
+
+  /**
+   * Get message metrics for organization
+   */
+  async getMessageMetrics(organizationId: string, date?: string): Promise<any> {
+    try {
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      const metrics = await this.redis.hgetall(`metrics:messages:${organizationId}:${targetDate}`);
+      
+      // Get response time statistics
+      const responseTimes = await this.redis.zrange(`metrics:response_times:${organizationId}`, 0, -1);
+      const times = responseTimes.map(Number);
+      
+      return {
+        date: targetDate,
+        messagesSent: parseInt(metrics.sent || '0'),
+        messagesReceived: parseInt(metrics.received || '0'),
+        messagesRateLimited: parseInt(metrics.rate_limited || '0'),
+        averageResponseTime: times.length > 0 ? times.reduce((a: number, b: number) => a + b, 0) / times.length : 0,
+        responseTimes: {
+          count: times.length,
+          min: times.length > 0 ? Math.min(...times) : 0,
+          max: times.length > 0 ? Math.max(...times) : 0,
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting message metrics:', error);
       return null;
     }
   }

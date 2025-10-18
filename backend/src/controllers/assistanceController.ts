@@ -610,7 +610,7 @@ export class AssistanceController {
    * Get billing email templates
    * GET /api/super-admin/support/billing/email-templates
    */
-  async getBillingEmailTemplates(req: Request, res: Response) {
+  async getBillingEmailTemplates(_req: Request, res: Response) {
     try {
       const templates = organizationAssistanceService.getBillingEmailTemplates();
 

@@ -55,6 +55,10 @@
   ],
   "ts-node": {
     "require": ["tsconfig-paths/register"],
-    "files": true
+    "files": true,
+    "transpileOnly": true,
+    "compilerOptions": {
+      "incremental": false
+    }
   }
 }

@@ -9,7 +9,7 @@ export const connectRedis = async (): Promise<RedisClientType> => {
   }
 
   try {
-    const redisUrl = `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
+    const redisUrl = `redis://:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`;
     
     const clientConfig: any = {
       url: redisUrl,
