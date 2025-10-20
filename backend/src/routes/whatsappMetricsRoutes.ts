@@ -23,7 +23,7 @@ const router = express.Router();
  * Returns message statistics and performance metrics.
  * Requires authentication.
  */
-router.get('/metrics/:organizationId', authenticate, async (req: Request, res: Response) => {
+router.get('/metrics/:organizationId', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { organizationId } = req.params;
     
@@ -41,6 +41,15 @@ router.get('/metrics/:organizationId', authenticate, async (req: Request, res: R
     const queryDateRaw = req.query.date;
     const queryDate: string | undefined = typeof queryDateRaw === 'string' ? queryDateRaw : undefined;
     
+    // Validate organizationId before using
+    if (!organizationId) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Organization ID is required'
+      });
+      return;
+    }
+
     // Call method with or without date parameter
     const metrics = queryDate
       ? await whatsappService.getMessageMetrics(organizationId, queryDate)
@@ -80,7 +89,7 @@ router.get('/metrics/:organizationId', authenticate, async (req: Request, res: R
  * - Redis connectivity
  * - Message queue status
  */
-router.get('/health/detailed', async (_req: Request, res: Response) => {
+router.get('/health/detailed', async (_req: Request, res: Response): Promise<void> => {
   const health: any = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -180,7 +189,7 @@ router.get('/health/detailed', async (_req: Request, res: Response) => {
  * Returns statistics about the message queue.
  * Requires authentication.
  */
-router.get('/queue/stats', authenticate, async (_req: Request, res: Response) => {
+router.get('/queue/stats', authenticate, async (_req: Request, res: Response): Promise<void> => {
   try {
     // Queue stats would be fetched from Bull Queue
     // For now, return basic info
@@ -206,7 +215,7 @@ router.get('/queue/stats', authenticate, async (_req: Request, res: Response) =>
  * Returns paginated message history.
  * Requires authentication.
  */
-router.get('/messages/history', authenticate, async (req: Request, res: Response) => {
+router.get('/messages/history', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const organizationId = req.user!.organizationId;
     const { patientId, startDate, endDate, page = '1', limit = '50' } = req.query;
@@ -279,7 +288,7 @@ router.get('/messages/history', authenticate, async (req: Request, res: Response
  * Tests connectivity to WhatsApp API for an organization.
  * Requires authentication and admin role.
  */
-router.post('/test/connectivity', authenticate, async (req: Request, res: Response) => {
+router.post('/test/connectivity', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const { organizationId } = req.body;
 
@@ -330,7 +339,7 @@ router.post('/test/connectivity', authenticate, async (req: Request, res: Respon
  * Returns current alerting thresholds and configuration.
  * Requires super admin authentication.
  */
-router.get('/alerts/config', authenticate, async (req: Request, res: Response) => {
+router.get('/alerts/config', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     // Verify super admin
     if (req.user?.role !== 'SUPER_ADMIN') {

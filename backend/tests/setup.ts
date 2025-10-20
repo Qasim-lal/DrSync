@@ -10,7 +10,10 @@ process.env.JWT_REFRESH_SECRET = 'test-jwt-refresh-secret-key-for-testing-only';
 process.env.JWT_EXPIRES_IN = '15m';
 process.env.JWT_REFRESH_EXPIRES_IN = '7d';
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://test:test@localhost:5432/drsync_test';
-process.env.REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379/1';
+process.env.REDIS_URL = process.env.REDIS_URL || 'redis://:drsync_redis_password@redis:6379/1';
+process.env.REDIS_HOST = process.env.REDIS_HOST || 'redis';
+process.env.REDIS_PORT = process.env.REDIS_PORT || '6379';
+process.env.REDIS_PASSWORD = process.env.REDIS_PASSWORD || 'drsync_redis_password';
 
 // Global test timeout
 jest.setTimeout(10000);

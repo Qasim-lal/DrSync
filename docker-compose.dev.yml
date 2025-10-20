@@ -60,8 +60,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: drsync_redis_password
+      REDIS_URL: redis://:drsync_redis_password@redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
       PORT: 3001
+      # WhatsApp Mock Server (when testing profile is active)
+      WHATSAPP_API_URL: http://whatsapp-mock:3099
+      WHATSAPP_MOCK_API_URL: http://whatsapp-mock:3099
     ports:
       - "3001:3001"
     volumes:
@@ -75,6 +79,29 @@ services:
       redis:
         condition: service_healthy
     command: npm run dev
+
+  # WhatsApp Mock Server (for local testing)
+  whatsapp-mock:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.whatsapp-mock
+    container_name: drsync_whatsapp_mock
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DOCKER: "true"
+      WEBHOOK_URL: http://backend:3001/api/whatsapp/webhook
+    ports:
+      - "3099:3099"
+    volumes:
+      - ./backend/src:/app/src
+      - /app/node_modules
+    networks:
+      - drsync_network
+    depends_on:
+      - backend
+    profiles:
+      - testing
 
   # Frontend Next.js Service
   frontend:

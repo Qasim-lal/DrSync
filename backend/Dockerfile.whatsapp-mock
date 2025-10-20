@@ -1,0 +1,19 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY src ./src
+
+# Expose mock server port
+EXPOSE 3099
+
+# Run mock server
+CMD ["npx", "ts-node", "src/test-utils/whatsapp-mock-server.ts"]

@@ -256,23 +256,22 @@ class GoogleSheetsSyncService {
         logger.debug(`[GoogleSheetsSyncService] Updated appointment ${appointmentId} in PostgreSQL`);
       } else {
         // Create new record
-        await prisma.appointment.create({
-          data: {
-            id: appointmentId,
-            organizationId,
-            patientId: sheetAppointment.patientId,
-            providerId: sheetAppointment.providerId,
-            title: sheetAppointment.title || 'Appointment',
-            description: sheetAppointment.description,
-            scheduledAt: new Date(sheetAppointment.scheduledAt),
-            duration: sheetAppointment.duration || 30,
-            status: sheetAppointment.status,
-            priority: sheetAppointment.priority || 'MEDIUM',
-            bookingSource: sheetAppointment.bookingSource || 'WHATSAPP',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        });
+        const createData: any = {
+          id: appointmentId,
+          organizationId,
+          patientId: sheetAppointment.patientId,
+          providerId: sheetAppointment.providerId,
+          title: sheetAppointment.title || 'Appointment',
+          scheduledAt: new Date(sheetAppointment.scheduledAt),
+          duration: sheetAppointment.duration || 30,
+          status: sheetAppointment.status,
+          priority: sheetAppointment.priority || 'MEDIUM',
+          bookingSource: sheetAppointment.bookingSource || 'WHATSAPP',
+        };
+        if (sheetAppointment.description) {
+          createData.description = sheetAppointment.description;
+        }
+        await prisma.appointment.create({ data: createData });
 
         logger.debug(`[GoogleSheetsSyncService] Created appointment ${appointmentId} in PostgreSQL`);
       }
@@ -333,8 +332,8 @@ class GoogleSheetsSyncService {
   private async getAppointmentsFromSheets(organizationId: string): Promise<Array<{ id: string }>> {
     try {
       // Use existing googleSheetsService to fetch appointments
-      const appointments = await googleSheetsService.getAllAppointments(organizationId);
-      return appointments.map((apt: any) => ({ id: apt.id }));
+      const result = await googleSheetsService.getAppointments(organizationId);
+      return result.appointments.map((apt: any) => ({ id: apt.id }));
     } catch (error) {
       logger.error(`[GoogleSheetsSyncService] Failed to fetch appointments from Google Sheets:`, error);
       throw error;
