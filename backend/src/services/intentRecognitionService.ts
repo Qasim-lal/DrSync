@@ -61,12 +61,12 @@ class IntentRecognitionService {
       ur: ['بک', 'ملاقات', 'بکنگ', 'اپوائنٹمنٹ', 'کرنا', 'چاہیے', 'ضرورت'],
     },
     [Intent.CANCEL_APPOINTMENT]: {
-      en: ['cancel', 'delete', 'remove appointment', 'cancel appointment', 'dont want', 'not coming'],
-      ur: ['منسوخ', 'ختم', 'منسوخ کریں', 'نہیں آ سکتا', 'نہیں'],
+      en: ['cancel my appointment', 'cancel appointment', 'remove appointment', 'delete appointment', 'cancel', 'delete', 'dont want', 'not coming'],
+      ur: ['منسوخ کریں', 'منسوخ', 'ختم', 'نہیں آ سکتا', 'نہیں'],
     },
     [Intent.RESCHEDULE_APPOINTMENT]: {
-      en: ['reschedule', 'change', 'change appointment', 'different time', 'move appointment', 'postpone', 'change time', 'change date'],
-      ur: ['تبدیل', 'دوبارہ', 'شیڈول', 'وقت تبدیل', 'تاریخ تبدیل'],
+      en: ['reschedule my appointment', 'reschedule appointment', 'change my appointment', 'change appointment', 'different time', 'move appointment', 'reschedule', 'change', 'postpone', 'change time', 'change date'],
+      ur: ['شیڈول تبدیل', 'وقت تبدیل', 'تاریخ تبدیل', 'تبدیل', 'دوبارہ', 'شیڈول'],
     },
     [Intent.VIEW_APPOINTMENTS]: {
       en: ['view', 'see', 'show', 'my appointments', 'check appointments', 'list appointments', 'upcoming'],
@@ -254,7 +254,7 @@ class IntentRecognitionService {
     text: string,
     language: 'en' | 'ur'
   ): IntentClassificationResult {
-    const scores: { intent: Intent; score: number; keywords: string[] }[] = [];
+    const scores: { intent: Intent; score: number; keywords: string[]; phraseWeight: number }[] = [];
 
     // Check each intent pattern
     for (const [intentKey, patterns] of Object.entries(this.INTENT_PATTERNS)) {
@@ -277,16 +277,27 @@ class IntentRecognitionService {
       });
 
       if (matches.length > 0) {
+        // Calculate phrase weight: multi-word phrases get higher weight
+        const phraseWeight = matches.reduce((weight, kw) => {
+          return weight + (kw.includes(' ') ? 3 : 1); // Multi-word = 3x weight
+        }, 0);
+        
         scores.push({
           intent,
           score: matches.length,
           keywords: matches,
+          phraseWeight,
         });
       }
     }
 
-    // Sort by score (highest first)
-    scores.sort((a, b) => b.score - a.score);
+    // Sort by phrase weight first (prioritize multi-word matches), then by score
+    scores.sort((a, b) => {
+      if (b.phraseWeight !== a.phraseWeight) {
+        return b.phraseWeight - a.phraseWeight;
+      }
+      return b.score - a.score;
+    });
 
     // Return best match or UNKNOWN
     if (scores.length > 0) {

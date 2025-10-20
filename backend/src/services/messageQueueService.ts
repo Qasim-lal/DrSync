@@ -9,12 +9,12 @@
  * - Async message processing with Bull Queue
  * - Redis-backed job queue
  * - Retry mechanism (3 attempts, exponential backoff)
- * - Concurrent processing (5 workers)
+ * - Concurrent processing (10 workers)
  * - Performance monitoring (<1s target)
  * - Priority-based queuing
  * 
- * @version 1.0
- * @date October 19, 2025
+ * @version 1.1
+ * @date October 20, 2025
  */
 
 import Queue, { Job, JobOptions } from 'bull';
@@ -62,7 +62,7 @@ class MessageQueueService {
   private queue: Queue.Queue<MessageJobData>;
   private redis: Redis;
   private readonly QUEUE_NAME = 'whatsapp-messages';
-  private readonly CONCURRENCY = 5; // Process 5 messages simultaneously
+  private readonly CONCURRENCY = 10; // Process 10 messages simultaneously (optimized from 5)
   private readonly MAX_ATTEMPTS = 3;
   private readonly BACKOFF_DELAY = 2000; // 2 seconds base delay
   private isProcessing = false;

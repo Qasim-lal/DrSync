@@ -144,6 +144,25 @@ Reply with the time slot number (e.g., 1).`,
 وقت کی سلاٹ نمبر کے ساتھ جواب دیں (مثلاً، 1)۔`,
   };
 
+  public readonly BOOKING_CONFIRMATION: BilingualTemplate = {
+    en: `*Confirm Appointment* ✅
+
+*Doctor:* Dr. {{providerName}}
+*Date:* {{date}}
+*Time:* {{time}}
+*Location:* {{clinicName}}
+
+Reply YES to confirm or NO to cancel.`,
+    ur: `*ملاقات کی تصدیق کریں* ✅
+
+*ڈاکٹر:* Dr. {{providerName}}
+*تاریخ:* {{date}}
+*وقت:* {{time}}
+*مقام:* {{clinicName}}
+
+تصدیق کے لیے ہاں یا منسوخ کرنے کے لیے نہیں کے ساتھ جواب دیں۔`,
+  };
+
   public readonly APPOINTMENT_CONFIRMED: BilingualTemplate = {
     en: `✅ *Appointment Confirmed!*
 
@@ -167,6 +186,11 @@ Reply MENU to return to the main menu.`,
 ہم آپ کو آپ کی ملاقات سے پہلے ایک یاد دہانی بھیجیں گے۔
 
 مین مینو پر واپس جانے کے لیے MENU کے ساتھ جواب دیں۔`,
+  };
+
+  public readonly BOOKING_CANCELLED: BilingualTemplate = {
+    en: '❌ Booking cancelled.\n\nReply MENU to return to the main menu.',
+    ur: '❌ بکنگ منسوخ ہو گئی۔\n\nمین مینو پر واپس جانے کے لیے MENU کے ساتھ جواب دیں۔',
   };
 
   // ===== VIEW APPOINTMENTS =====
@@ -324,6 +348,26 @@ See you soon!`,
   public readonly ERROR_NO_PROVIDERS: BilingualTemplate = {
     en: 'Sorry, no doctors are available at the moment. Please try again later.',
     ur: 'معذرت، اس وقت کوئی ڈاکٹر دستیاب نہیں ہے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔',
+  };
+
+  public readonly NO_PROVIDERS_AVAILABLE: BilingualTemplate = {
+    en: 'Sorry, no doctors are available at the moment. Please try again later.',
+    ur: 'معذرت، اس وقت کوئی ڈاکٹر دستیاب نہیں ہے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔',
+  };
+
+  public readonly NO_SLOTS_AVAILABLE: BilingualTemplate = {
+    en: 'Sorry, there are no available time slots for this date. Please try a different date.',
+    ur: 'معذرت، اس تاریخ کے لیے کوئی دستیاب وقت کی سلاٹس نہیں ہیں۔ براہ کرم ایک مختلف تاریخ آزمائیں۔',
+  };
+
+  public readonly INVALID_SELECTION: BilingualTemplate = {
+    en: 'Invalid selection. Please reply with a valid number.',
+    ur: 'غلط انتخاب۔ براہ کرم ایک درست نمبر کے ساتھ جواب دیں۔',
+  };
+
+  public readonly ERROR_BOOKING_FAILED: BilingualTemplate = {
+    en: 'Failed to book appointment. Please try again or contact the clinic.',
+    ur: 'ملاقات بک کرنے میں ناکام۔ براہ کرم دوبارہ کوشش کریں یا کلینک سے رابطہ کریں۔',
   };
 
   public readonly ERROR_APPOINTMENT_NOT_FOUND: BilingualTemplate = {

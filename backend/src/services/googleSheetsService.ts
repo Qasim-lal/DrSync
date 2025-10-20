@@ -905,16 +905,155 @@ class GoogleSheetsService {
   /**
    * HELPER METHODS
    */
-  private async checkAppointmentConflict(_structure: SheetStructure, _providerId: string, _startTime: Date, _endTime: Date): Promise<{ hasConflict: boolean; conflictingAppointments: any[] }> {
-    // Implementation would check for overlapping appointments
-    // For now, return no conflict
-    return { hasConflict: false, conflictingAppointments: [] };
+  
+  /**
+   * Check for appointment conflicts in Google Sheets
+   * Reads appointments sheet and checks for overlapping time slots
+   */
+  private async checkAppointmentConflict(
+    structure: SheetStructure,
+    providerId: string,
+    startTime: Date,
+    endTime: Date
+  ): Promise<{ hasConflict: boolean; conflictingAppointments: any[] }> {
+    try {
+      // Read appointments from Google Sheets
+      const range = structure.structure === 'TABS'
+        ? `${structure.tabMappings!.appointments}!A:Y`
+        : `A:Y`;
+      
+      const sheetId = structure.structure === 'TABS'
+        ? structure.googleSheetsId
+        : structure.sheetMappings!.appointments;
+
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range,
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) {
+        // No appointments (only header row or empty)
+        return { hasConflict: false, conflictingAppointments: [] };
+      }
+
+      const conflictingAppointments: any[] = [];
+
+      // Skip header row (index 0)
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        
+        // Check if this appointment is for the same provider
+        const rowProviderId = row[4]; // Column E: Provider ID
+        if (rowProviderId !== providerId) {
+          continue;
+        }
+
+        // Check if appointment is not cancelled
+        const status = row[11]; // Column L: Status
+        if (status === 'CANCELLED' || status === 'COMPLETED') {
+          continue;
+        }
+
+        // Parse appointment time
+        const scheduledAt = new Date(row[8]!); // Column I: Scheduled At
+        const appointmentEndTime = new Date(row[10]!); // Column K: End Time
+
+        // Check for overlap
+        // Overlap occurs if:
+        // (startTime < appointmentEndTime) AND (endTime > scheduledAt)
+        const hasOverlap = startTime < appointmentEndTime && endTime > scheduledAt;
+
+        if (hasOverlap) {
+          conflictingAppointments.push({
+            id: row[0]!,
+            patientName: row[2]!,
+            scheduledAt: scheduledAt.toISOString(),
+            endTime: appointmentEndTime.toISOString(),
+            status: row[11]!,
+          });
+        }
+      }
+
+      const hasConflict = conflictingAppointments.length > 0;
+      
+      if (hasConflict) {
+        logger.warn('[GoogleSheetsService] Appointment conflict detected', {
+          providerId,
+          requestedStart: startTime.toISOString(),
+          requestedEnd: endTime.toISOString(),
+          conflictCount: conflictingAppointments.length,
+        });
+      }
+
+      return { hasConflict, conflictingAppointments };
+    } catch (error: any) {
+      logger.error('[GoogleSheetsService] Error checking appointment conflict', {
+        error: error.message,
+      });
+      // On error, assume no conflict to avoid blocking bookings
+      return { hasConflict: false, conflictingAppointments: [] };
+    }
   }
 
-  private async findNextAvailableSlot(_structure: SheetStructure, _providerId: string, preferredTime: Date, _duration: number): Promise<Date | null> {
-    // Implementation would find next available slot
-    // For now, return 1 hour later
-    return new Date(preferredTime.getTime() + 60 * 60 * 1000);
+  /**
+   * Find next available slot for a provider
+   * Used when requested slot has a conflict
+   */
+  private async findNextAvailableSlot(
+    structure: SheetStructure,
+    providerId: string,
+    preferredTime: Date,
+    duration: number
+  ): Promise<Date | null> {
+    try {
+      // Search for next 3 days
+      const searchDays = 3;
+      const slotInterval = 30; // 30-minute intervals
+      const workingHoursStart = 9; // 9 AM
+      const workingHoursEnd = 17; // 5 PM
+
+      for (let day = 0; day < searchDays; day++) {
+        const checkDate = new Date(preferredTime);
+        checkDate.setDate(checkDate.getDate() + day);
+        checkDate.setHours(workingHoursStart, 0, 0, 0);
+
+        // Check slots for this day
+        while (checkDate.getHours() < workingHoursEnd) {
+          const slotStart = new Date(checkDate);
+          const slotEnd = new Date(slotStart.getTime() + duration * 60000);
+
+          // Check if this slot is available
+          const conflict = await this.checkAppointmentConflict(
+            structure,
+            providerId,
+            slotStart,
+            slotEnd
+          );
+
+          if (!conflict.hasConflict) {
+            logger.info('[GoogleSheetsService] Found next available slot', {
+              providerId,
+              slot: slotStart.toISOString(),
+            });
+            return slotStart;
+          }
+
+          // Move to next slot
+          checkDate.setMinutes(checkDate.getMinutes() + slotInterval);
+        }
+      }
+
+      // No available slot found in next 3 days
+      logger.warn('[GoogleSheetsService] No available slot found', { providerId });
+      return null;
+    } catch (error: any) {
+      logger.error('[GoogleSheetsService] Error finding next available slot', {
+        error: error.message,
+      });
+      return null;
+    }
   }
 
   private async getPatientById(_structure: SheetStructure, _patientId: string): Promise<any | null> {
@@ -927,9 +1066,59 @@ class GoogleSheetsService {
     return { firstName: 'Dr. Sarah', lastName: 'Smith' };
   }
 
-  private async getPatientsByPhone(_structure: SheetStructure, _phone: string): Promise<any[]> {
-    // Implementation would fetch patients by phone
-    return [];
+  /**
+   * Get all patients with a specific phone number (for family accounts)
+   */
+  private async getPatientsByPhone(structure: SheetStructure, phone: string): Promise<any[]> {
+    try {
+      const range = structure.structure === 'TABS'
+        ? `${structure.tabMappings!.patients}!A:T`
+        : `A:T`;
+      
+      const sheetId = structure.structure === 'TABS'
+        ? structure.googleSheetsId
+        : structure.sheetMappings!.patients;
+
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range,
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length <= 1) {
+        return [];
+      }
+
+      const patients: any[] = [];
+
+      // Skip header row
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        
+        const rowPhone = row[3]; // Column D: Phone
+        
+        if (rowPhone === phone) {
+          patients.push({
+            id: row[0]!,
+            firstName: row[1]!,
+            lastName: row[2]!,
+            phone: row[3]!,
+            email: row[4]!,
+            isPrimaryContact: row[14] === 'true',
+            relationToPrimary: row[15] || 'self',
+          });
+        }
+      }
+
+      return patients;
+    } catch (error: any) {
+      logger.error('[GoogleSheetsService] Error fetching patients by phone', {
+        error: error.message,
+        phone,
+      });
+      return [];
+    }
   }
 
   private async findAppointmentRow(structure: SheetStructure, appointmentId: string): Promise<{ rowIndex: number } | null> {

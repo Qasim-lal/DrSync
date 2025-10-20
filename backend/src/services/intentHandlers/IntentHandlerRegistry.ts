@@ -16,6 +16,7 @@ import logger from '../../utils/logger';
 import { HelpMenuHandler } from './HelpMenuHandler';
 import { LanguageSwitchHandler } from './LanguageSwitchHandler';
 import { GetClinicInfoHandler } from './GetClinicInfoHandler';
+import { BookAppointmentHandler } from './BookAppointmentHandler';
 
 class IntentHandlerRegistry {
   private handlers: Map<Intent, BaseIntentHandler>;
@@ -34,8 +35,10 @@ class IntentHandlerRegistry {
     this.register(new LanguageSwitchHandler());
     this.register(new GetClinicInfoHandler());
 
+    // Appointment booking handler - TASK-041
+    this.register(new BookAppointmentHandler());
+
     // More handlers will be added here:
-    // this.register(new BookAppointmentHandler());
     // this.register(new ViewAppointmentsHandler());
     // etc.
 

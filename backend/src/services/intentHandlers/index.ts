@@ -12,6 +12,7 @@ export * from './IntentHandlerRegistry';
 export * from './HelpMenuHandler';
 export * from './LanguageSwitchHandler';
 export * from './GetClinicInfoHandler';
+export * from './BookAppointmentHandler';
 
 // Export default registry instance
 export { default as intentHandlerRegistry } from './IntentHandlerRegistry';
