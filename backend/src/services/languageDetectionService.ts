@@ -430,23 +430,17 @@ class LanguageDetectionService {
   /**
    * Get organization's default language setting
    * 
-   * Checks Organization.language field (default: 'en')
+   * TASK-040A Integration: Now reads from NotificationSettings first,
+   * then falls back to Organization.language
    */
   private async getOrganizationLanguage(
     organizationId: string
   ): Promise<'en' | 'ur' | null> {
     try {
-      const prisma = getPrismaClient();
-      const organization = await prisma.organization.findUnique({
-        where: { id: organizationId },
-        select: { language: true },
-      });
-
-      if (organization && organization.language) {
-        return organization.language as 'en' | 'ur';
-      }
-
-      return null;
+      // TASK-040A: Use NotificationSettingsService for language preference
+      const notificationSettingsService = (await import('./notificationSettingsService')).default;
+      const language = await notificationSettingsService.getOrganizationLanguage(organizationId);
+      return language;
     } catch (error: any) {
       logger.error('[LanguageDetection] Failed to get org language', {
         organizationId,

@@ -29,6 +29,7 @@ import googleSheetsService from '../googleSheetsService';
 import slotLockingService from '../slotLockingService';
 import getPrismaClient from '../prisma';
 import logger from '../../utils/logger';
+import notificationSettingsService, { NotificationType } from '../notificationSettingsService';
 
 // Booking flow steps
 enum BookingStep {
@@ -489,14 +490,37 @@ export class BookAppointmentHandler extends BaseIntentHandler {
         logger.info('[BookAppointmentHandler] Lock released after successful booking');
       }
 
-      // Send confirmation message
-      const message = messageTemplates.format(messageTemplates.APPOINTMENT_CONFIRMED, context.language, {
-        patientName: `${patient.firstName} ${patient.lastName}`,
-        providerName,
-        date: this.formatDate(selectedDate, context.language),
-        time: selectedTimeSlot,
-        clinicName: context.organization.name,
-      });
+      // TASK-040A: Check if booking confirmations are enabled
+      const shouldSendConfirmation = await notificationSettingsService.shouldSendNotification(
+        context.organizationId,
+        NotificationType.BOOKING_CONFIRMATION,
+        new Date()
+      );
+
+      // Build confirmation message
+      const message = shouldSendConfirmation
+        ? messageTemplates.format(messageTemplates.APPOINTMENT_CONFIRMED, context.language, {
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            providerName,
+            date: this.formatDate(selectedDate, context.language),
+            time: selectedTimeSlot,
+            clinicName: context.organization.name,
+          })
+        : messageTemplates.format(
+            {
+              en: 'Appointment booked successfully. Appointment ID: {{appointmentId}}',
+              ur: 'اپوائنٹمنٹ کامیابی سے بک ہوگئی۔ اپوائنٹمنٹ ID: {{appointmentId}}',
+            },
+            context.language,
+            { appointmentId }
+          );
+
+      if (!shouldSendConfirmation) {
+        logger.info('[BookAppointmentHandler] Confirmation message disabled per NotificationSettings', {
+          organizationId: context.organizationId,
+          appointmentId,
+        });
+      }
 
       return this.success(message, {
         nextStep: BookingStep.COMPLETED,
