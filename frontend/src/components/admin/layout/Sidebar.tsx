@@ -9,6 +9,7 @@ import {
   CreditCardIcon,
   ChartBarIcon,
   LifebuoyIcon,
+  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -66,6 +67,15 @@ const navigation: NavItem[] = [
       { name: 'Communications', href: '/admin/support/communications' },
       { name: 'Assistance', href: '/admin/support/assistance' },
       { name: 'Analytics', href: '/admin/support/analytics' },
+    ],
+  },
+  {
+    name: 'Settings',
+    href: '/admin/settings',
+    icon: Cog6ToothIcon,
+    children: [
+      { name: 'Notification Settings', href: '/admin/notification-settings' },
+      { name: 'General', href: '/admin/settings' },
     ],
   },
 ];

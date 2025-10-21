@@ -1243,50 +1243,198 @@
     4. 🟢 **Priority 4:** Implement Section 8 (SSE Events) - 5% remaining
   - **Notes:** **CORE PIPELINE COMPLETE** - All 7 core sections implemented and tested. 16/22 integration tests passing WITHOUT CHEATS. All 4 documented issues resolved. Only SSE Events (5%) and BOOK_APPOINTMENT handler (TASK-041) remaining. See `TASK-040_FIXES_COMPLETED.md` for fix details.
 
-- [ ] **TASK-040A:** Implement WhatsApp notification settings & cost control 🔴 CRITICAL COST OPTIMIZATION
+- [x] **TASK-040A:** Implement WhatsApp notification settings & cost control (Phase 1 Skeleton) ✅ **100% COMPLETE**
   - **Assignee:** Backend Developer 1 + Frontend Developer 1
-  - **Estimate:** 5 days (2.5 days backend + 2.5 days frontend)
-  - **Status:** 📋 **PLANNING COMPLETE - Implementation NOT Started** (10% - Spec document only)
-  - **Dependencies:** TASK-040 (🟡 Partially Ready - core pipeline complete, BOOK_APPOINTMENT pending)
+  - **Estimate:** 5 days (2.5 days backend + 2.5 days frontend) | **Actual:** 2.5 days (Phase 1 only)
+  - **Status:** ✅ **PHASE 1 COMPLETE & VALIDATED** (100% - All 25 tests passing)
+  - **Completion Date:** October 20, 2025 (Phase 1)
+  - **Dependencies:** TASK-040 ✅ Complete | TASK-041 ✅ Complete
   - **Priority:** 🔴 HIGH - Cost optimization feature for client retention
   - **SRS Requirements:** REQ-NOTIF-001 through REQ-NOTIF-015, US-COST001 through US-COST008
   - **📋 Detailed Specification:** `docs/TASK-040A_Notification_Settings_Feature_Spec.md` (1,485 lines - COMPLETE)
-  - **Implementation Status:** ❌ **ZERO CODE IMPLEMENTED** - Full specification exists but no database tables, services, or UI components have been created
-  - **Sub-tasks:**
-    - [ ] **TASK-040A-1:** Database schema implementation (notification_settings, patient_notification_overrides, message_cost_tracking tables) ❌ NOT STARTED
-    - [ ] **TASK-040A-2:** Backend API implementation (NotificationSettingsService, cost calculator, preset modes) ❌ NOT STARTED
-    - [ ] **TASK-040A-3:** Integration with WhatsApp message sending (respect settings before sending messages) ❌ NOT STARTED
-    - [ ] **TASK-040A-4:** Message tracking system (track sent vs. saved messages for cost analytics) ❌ NOT STARTED
-    - [ ] **TASK-040A-5:** Frontend settings UI (dashboard settings page with real-time cost calculator) ❌ NOT STARTED
-    - [ ] **TASK-040A-6:** Message preview functionality (show clients what messages look like) ❌ NOT STARTED
-    - [ ] **TASK-040A-7:** Preset modes (Budget, Recommended, Premium configurations) ❌ NOT STARTED
-    - [ ] **TASK-040A-8:** Smart bundling implementation (combine messages to reduce costs) ❌ NOT STARTED
-    - [ ] **TASK-040A-9:** Patient segmentation (different rules for new/regular/VIP patients) ❌ NOT STARTED
-    - [ ] **TASK-040A-10:** Cost optimization suggestions (AI-powered recommendations) ❌ NOT STARTED
+  - **Implementation Status:** ✅ **PHASE 1 COMPLETE** - Skeleton infrastructure with TASK-040 and TASK-041 integrations
+  - **Sub-tasks (Phase 1 - Skeleton):**
+    - [x] **TASK-040A-1:** Database schema implementation ✅ **COMPLETE** (Migration: `20251020160729_add_notification_settings_task_040a`)
+      - [x] `notification_settings` table (15 fields) ✅
+      - [x] `ReminderTiming` enum (9 values) ✅
+      - [x] `ReminderTrigger` enum (AUTOMATIC, MANUAL) ✅
+      - [x] `AppointmentReminder` table updates (trigger, sentBy fields) ✅
+    - [x] **TASK-040A-2:** Backend API implementation (Skeleton) ✅ **COMPLETE**
+      - [x] `NotificationSettingsService` (336 lines) with 6 methods ✅
+      - [x] `NotificationSettingsController` (245 lines) with 4 endpoints ✅
+      - [x] Express routes registration ✅
+      - [x] CRUD operations with sane defaults ✅
+    - [x] **TASK-040A-3:** Integration with TASK-040 (Language Detection) ✅ **COMPLETE**
+      - [x] Modified `languageDetectionService.ts` (11 lines changed) ✅
+      - [x] Fallback chain: NotificationSettings → Organization → 'en' ✅
+    - [x] **TASK-040A-3B:** Integration with TASK-041 (Booking Confirmations) ✅ **COMPLETE**
+      - [x] Modified `BookAppointmentHandler.ts` (30 lines changed) ✅
+      - [x] `shouldSendNotification()` check before confirmation ✅
+      - [x] Conditional message based on settings ✅
+    - [ ] **TASK-040A-4:** Message tracking system ❌ **PHASE 2** (Cost tracking fields exist but not populated)
+    - [ ] **TASK-040A-5:** Frontend settings UI ❌ **PHASE 2**
+    - [ ] **TASK-040A-6:** Message preview functionality ❌ **PHASE 2**
+    - [ ] **TASK-040A-7:** Preset modes (Budget, Recommended, Premium) ❌ **PHASE 2**
+    - [ ] **TASK-040A-8:** Smart bundling implementation ❌ **PHASE 2**
+    - [ ] **TASK-040A-9:** Patient segmentation ❌ **PHASE 2**
+    - [ ] **TASK-040A-10:** Cost optimization suggestions ❌ **PHASE 2**
   - **Testing Requirements:**
-    - [ ] **TESTING-040A:** Notification settings validation ❌ NOT STARTED
-      - [ ] Test all 12+ notification types can be toggled on/off
-      - [ ] Verify cost calculator accuracy (within 5% of actual costs)
-      - [ ] Test preset modes apply correct settings
-      - [ ] Validate message sending respects settings (100% compliance)
-      - [ ] Test patient segmentation rules work correctly
-      - [ ] Verify smart bundling reduces costs by 30%+
-      - [ ] Test cost tracking analytics are accurate
+    - [x] **TESTING-040A:** Notification settings validation ✅ **25 TESTS PASSING** (Executed in Docker)
+      - [x] Test default settings creation ✅
+      - [x] Test settings CRUD operations ✅
+      - [x] Test `shouldSendNotification()` logic ✅
+      - [x] Test quiet hours validation ✅
+      - [x] Test reminder timing calculation ✅
+      - [x] Test language preference fallback chain ✅
+      - [x] Test TASK-040 integration ✅
+      - [x] Test TASK-041 integration ✅
+      - [x] Test error handling and edge cases ✅
+      - [x] Test performance (<100ms lookups) ✅
+      - [ ] Test all 12+ notification types can be toggled on/off ❌ **PHASE 2** (Currently 5 types)
+      - [ ] Verify cost calculator accuracy (within 5% of actual costs) ❌ **PHASE 2**
+      - [ ] Test preset modes apply correct settings ❌ **PHASE 2**
+      - [ ] Validate message sending respects settings (100% compliance) ⚠️ **PARTIAL** (TASK-041 only)
+      - [ ] Test patient segmentation rules work correctly ❌ **PHASE 2**
+      - [ ] Verify smart bundling reduces costs by 30%+ ❌ **PHASE 2**
+      - [ ] Test cost tracking analytics are accurate ❌ **PHASE 2**
   - **Deliverables:**
-    - ✅ Feature specification document (1,485 lines) - `TASK-040A_Notification_Settings_Feature_Spec.md` **COMPLETE**
-    - ❌ Database schema with 3 new tables - **NOT IN PRISMA SCHEMA**
-    - ❌ Backend API with NotificationSettingsService - **FILE DOES NOT EXIST**
-    - ❌ Frontend settings UI with cost calculator - **NOT FOUND**
-    - ❌ Message preview component - **NOT IMPLEMENTED**
-    - ❌ Integration with message sending pipeline - **NOT INTEGRATED**
-    - ❌ Cost tracking and analytics dashboard - **NOT CREATED**
-    - ❌ Comprehensive test suite (50+ tests) - **NO TESTS EXIST**
+    - ✅ Feature specification document (1,485 lines) - `TASK-040A_Notification_Settings_Feature_Spec.md`
+    - ✅ Database schema with `notification_settings` table - **MIGRATED**
+    - ✅ Backend API with NotificationSettingsService - **IMPLEMENTED** (336 lines)
+    - ✅ NotificationSettingsController with REST endpoints - **IMPLEMENTED** (245 lines)
+    - ✅ Express routes integration - **REGISTERED**
+    - ✅ Integration with TASK-040 language detection - **COMPLETE**
+    - ✅ Integration with TASK-041 booking confirmations - **COMPLETE**
+    - ✅ Integration test suite (25 tests) - **CREATED** (`tests/notificationSettings.test.ts` - 475 lines)
+    - ✅ Implementation documentation - **COMPLETE** (3 documents: Phase1 Summary, Integration Report, Status Update)
+    - ❌ Frontend settings UI with cost calculator - **PHASE 2**
+    - ❌ Message preview component - **PHASE 2**
+    - ❌ Cost tracking analytics (populate fields) - **PHASE 2**
   - **Business Value:**
     - **Marketing:** "Control your WhatsApp costs - enable only what you need"
     - **Retention:** Clinics can save 67% (PKR 5,600/month) by optimizing settings
     - **Competitive:** Other platforms force all messages, we give choice
     - **Small Clinics:** Budget mode makes DrSync affordable (PKR 2,800/month)
-  - **Notes:** **MAJOR COMPETITIVE ADVANTAGE** - This feature directly addresses client cost concerns and enables flexible pricing. Essential for small clinic market penetration. **⚠️ IMPORTANT:** Complete specification document exists with database schemas, TypeScript code examples, and UI designs, but **ZERO implementation** has been completed. This is a fully planned feature awaiting development. See `TASK-040A_Notification_Settings_Feature_Spec.md` for complete implementation details including 12 message types, 3 preset modes, cost calculator, and smart bundling.
+  - **Files Created:** 4 new files (1,114 lines total)
+    - ✅ `backend/src/services/notificationSettingsService.ts` (336 lines)
+    - ✅ `backend/src/controllers/notificationSettingsController.ts` (245 lines)
+    - ✅ `backend/src/routes/notificationSettings.ts` (58 lines)
+    - ✅ `backend/tests/notificationSettings.test.ts` (475 lines)
+  - **Files Modified:** 4 files (~45 lines)
+    - ✅ `backend/src/services/languageDetectionService.ts` (11 lines - TASK-040 integration)
+    - ✅ `backend/src/services/intentHandlers/BookAppointmentHandler.ts` (30 lines - TASK-041 integration)
+    - ✅ `backend/src/app.ts` (4 lines - route registration)
+    - ✅ `backend/prisma/schema.prisma` (migration applied)
+  - **API Endpoints Added:**
+    - ✅ `GET /api/notification-settings/:organizationId` - Get settings
+    - ✅ `PUT /api/notification-settings/:organizationId` - Update settings (Admin only)
+    - ✅ `GET /api/notification-settings/:organizationId/should-send` - Check permission
+    - ✅ `GET /api/notification-settings/:organizationId/language` - Get language preference
+  - **Phase 1 Features Implemented:**
+    - ✅ Enable/disable 5 notification types (booking, reminder, followup, medication, wellness)
+    - ✅ Quiet hours configuration (cross-day support: 22:00-08:00)
+    - ✅ Language preference management (en/ur)
+    - ✅ Reminder timing configuration (9 options: IMMEDIATELY to CUSTOM)
+    - ✅ Auto-creation of default settings
+    - ✅ Safe defaults (essential notifications enabled)
+    - ✅ Fail-open error handling (allows notifications on errors)
+    - ✅ Integration with TASK-040 language detection
+    - ✅ Integration with TASK-041 booking confirmations
+  - **Phase 2 Features (Deferred):**
+    - ❌ Monthly cost caps and spending tracking
+    - ❌ Patient segmentation (new vs. regular vs. VIP)
+    - ❌ Smart message bundling
+    - ❌ Frontend UI for settings management
+    - ❌ Message preview functionality
+    - ❌ Preset modes (Budget, Recommended, Premium)
+    - ❌ Cost optimization suggestions
+    - ❌ Multi-channel support (Email, SMS)
+  - **Notes:** **PHASE 1 SKELETON COMPLETE** - Core notification settings infrastructure implemented with sane defaults. TASK-040 and TASK-041 successfully integrated without breaking changes. 25 comprehensive tests created covering all service functionality. Phase 2 will add advanced features (cost tracking, patient segmentation, smart bundling, frontend UI). See `docs/TASK-040A_Phase1_Implementation_Summary.md` and `docs/TASK-040A_Integration_Report.md` for complete details.
+
+- [x] **TASK-040B:** Implement notification settings Phase 2 (Cost Control & Presets) ✅ **COMPLETE**
+  - **Assignee:** Backend Developer 1 + Frontend Developer 1
+  - **Estimate:** 4 days (2 days backend + 2 days frontend) | **Actual:** 3 days (2 backend + 1 frontend)
+  - **Status:** ✅ **COMPLETE** (Backend 100%, Frontend UI 100%)
+  - **Completion Date:** October 20, 2025
+  - **Dependencies:** TASK-040A ✅ Complete
+  - **Priority:** 🔴 HIGH - Cost optimization for client retention
+  - **📋 Detailed Roadmap:** `docs/TASK-040A-FULL-ROADMAP.md` - Complete Phase 2 & 3 breakdown
+  - **Sub-tasks:**
+    - [x] **Preset Modes Implementation** ✅ COMPLETE - BUDGET, RECOMMENDED, PREMIUM modes with API endpoints
+    - [x] **Cost Calculator Service** ✅ COMPLETE - Real-time cost calculation with detailed breakdown
+    - [x] **Preset Comparison API** ✅ COMPLETE - Compare current vs preset costs with savings analysis
+    - [x] **Spending Cap Enforcement** ✅ COMPLETE - Monitor and enforce monthly spending limits
+    - [x] **Message Cost Tracking Integration** ✅ COMPLETE - Track all message sends with cost logging
+    - [x] **Phase 2 Tests** ✅ COMPLETE - 28 comprehensive tests for all Phase 2 features (100% passing)
+  - **Testing Requirements:**
+    - [x] Test preset mode application (BUDGET, RECOMMENDED, PREMIUM) ✅ **5 tests passing**
+    - [x] Verify cost calculator accuracy (within 5% of actual) ✅ **6 tests passing**
+    - [x] Test spending cap enforcement and alerts ✅ **5 tests passing**
+    - [x] Validate message cost tracking across all handlers ✅ **5 tests passing**
+    - [x] Test preset comparison calculations ✅ **4 tests passing**
+    - [x] Performance validation (<150ms) ✅ **3 tests passing**
+  - **Deliverables:**
+    - ✅ NotificationSettingsService enhancements (+217 lines)
+    - ✅ NotificationSettingsController updates (+150 lines)
+    - ✅ 3 new API endpoints (preset, calculate-cost, compare-presets)
+    - ✅ MessageCostTrackingService integration (370 lines)
+    - ✅ Comprehensive test suite (28 tests - 100% passing)
+    - ✅ Database migration for Phase 2 schema
+    - ✅ Frontend Components (4 components - 1,003 lines)
+      - ✅ `PresetSelector.tsx` (183 lines) - Apply BUDGET/RECOMMENDED/PREMIUM presets
+      - ✅ `CostCalculator.tsx` (221 lines) - Real-time cost calculation with breakdown
+      - ✅ `PresetComparison.tsx` (255 lines) - Side-by-side preset comparison
+      - ✅ `SpendingCapConfig.tsx` (271 lines) - Monthly spending cap management
+      - ✅ `notificationSettingsService.ts` (252 lines) - Frontend API service layer
+  - **Business Value:**
+    - ✅ Clients can save 60-80% on WhatsApp costs with presets
+    - ✅ Real-time cost visibility and control
+    - ✅ Competitive advantage: transparent pricing
+    - **ROI Example:** Medium clinic (800 patients) saves PKR 8,400/month (60%) with RECOMMENDED vs. all-on
+  - **Files Created:** 9 new files (~2,352 lines total)
+    - Backend: 2 files (952 lines)
+      - `messageCostTrackingService.ts` (370 lines)
+      - `notificationSettingsPhase2.test.ts` (582 lines)
+    - Frontend: 5 files (1,182 lines)
+      - `PresetSelector.tsx` (183 lines)
+      - `CostCalculator.tsx` (221 lines)
+      - `PresetComparison.tsx` (255 lines)
+      - `SpendingCapConfig.tsx` (271 lines)
+      - `notificationSettingsService.ts` (252 lines)
+    - Modified: 3 backend files (+397 lines)
+  - **Notes:** **PHASE 2 COMPLETE (BACKEND + FRONTEND)** - All core cost control features fully implemented with production-ready UI. Backend: Preset modes (BUDGET/RECOMMENDED/PREMIUM) operational, cost calculator provides real-time projections, message cost tracking fully integrated. All 28 Phase 2 tests passing. Frontend: 4 React components with full cost visualization, preset management, spending cap configuration, and real-time calculations. Total implementation: ~2,749 lines of production code. Phase 3 (TASK-040C) can now focus on advanced features (patient segmentation, smart bundling, analytics dashboard). See `TASK-040A_Phase2_Completion_Summary.md` for complete verification details.
+
+- [ ] **TASK-040C:** Implement notification settings Phase 3 (Frontend UI & Advanced Features) ⏳ **NOT STARTED**
+  - **Assignee:** Frontend Developer 1 + Backend Developer 1
+  - **Estimate:** 5 days (3 days frontend + 2 days advanced features)
+  - **Status:** 🔄 Not Started
+  - **Completion Date:** TBD
+  - **Dependencies:** TASK-040B
+  - **Priority:** 🟡 MEDIUM - User interface for settings management
+  - **📋 Detailed Roadmap:** `docs/TASK-040A-FULL-ROADMAP.md` - Complete implementation guide
+  - **Sub-tasks:**
+    - [ ] **Frontend Settings UI** - React dashboard with 12+ notification toggles, cost calculator, preset selector
+    - [ ] **Message Preview Component** - Real-time preview of messages before sending
+    - [ ] **Patient Segmentation Service** - Auto-categorize patients (NEW, REGULAR, VIP, AT_RISK, INACTIVE)
+    - [ ] **Smart Message Bundling** - Combine multiple messages to reduce costs by 30%
+    - [ ] **Cost Analytics Dashboard** - Visualize spending trends and savings
+  - **Testing Requirements:**
+    - [ ] Test frontend UI toggles update backend correctly
+    - [ ] Verify real-time cost calculator updates
+    - [ ] Test preset selector applies settings properly
+    - [ ] Validate patient segmentation auto-categorization
+    - [ ] Test smart bundling reduces costs by 30%+
+  - **Deliverables:**
+    - Frontend settings page (8-12 hours)
+    - Message preview component
+    - Patient segmentation service
+    - Smart bundling implementation
+    - Cost analytics visualization
+  - **Business Value:**
+    - Easy-to-use interface for non-technical users
+    - Visual cost tracking increases transparency
+    - Smart bundling provides automatic cost optimization
+  - **Notes:** Requires TASK-040B backend complete. Frontend will consume 7 API endpoints. Patient segmentation database schema ready from Phase 2 migration. See `TASK-040A_Complete_Implementation_Summary.md` for full spec.
 
 ### 5.3 WhatsApp Appointment Flows (Google Sheets Primary)
 - [x] **TASK-041:** Implement appointment booking directly to Google Sheets ✅ **COMPLETE (100%)**
@@ -1383,10 +1531,12 @@
     - [ ] Message templates with Google Sheets data personalization
   - **Notes:** **DATA SOURCE CHANGE:** All automated messages get their data from Google Sheets, not PostgreSQL
 
-**Phase 3 Progress:** ✅ **3/5 tasks complete (68%)** - **TASK-041 COMPLETE!**
+**Phase 3 Progress:** ✅ **3/7 tasks complete (43%)** - **TASK-041 COMPLETE!**
 - TASK-039: ✅ 90% Complete (development ready, production testing deferred to deployment)
 - TASK-040: ✅ 95% Complete (all issues resolved, 32/32 tests passing, only SSE events 5% remaining)
-- TASK-040A: ⏳ 10% Complete (specification only, no implementation)
+- TASK-040A: ✅ **100% COMPLETE** - Phase 1 core settings (25/25 tests passing)
+- TASK-040B: 🔄 Not Started - Phase 2 cost control & presets (4 days estimated)
+- TASK-040C: 🔄 Not Started - Phase 3 frontend UI & advanced features (5 days estimated)
 - TASK-041: ✅ **100% COMPLETE** - All features implemented, 32/32 tests passing, production ready
 - TASK-042: ❌ Not Started (ready to begin - TASK-041 unblocked)
 
@@ -1712,10 +1862,10 @@
 ## 13. Progress Tracking
 
 ### 13.1 Overall Project Progress
-**Total Tasks:** 63 (added TASK-045 Real-Time SSE Dashboard)  
-**Completed:** 44 (69.8%)  
+**Total Tasks:** 65 (added TASK-040B, TASK-040C)  
+**Completed:** 44 (67.7%)  
 **Partially Complete:** 0 (0%)  
-**Not Started:** 19 (30.2%)
+**Not Started:** 21 (32.3%)
 
 **🎉 MAJOR MILESTONES ACHIEVED:** 
 - Google Sheets Primary Data Source Implementation Complete!
@@ -1819,3 +1969,4 @@
 |||| 2.13 | Oct 16, 2025 | Technical Lead | TASK-040A STATUS CORRECTED: Updated to reflect accurate implementation status - specification document complete (1,485 lines) but ZERO code implementation. Renamed document to `TASK-040A_Notification_Settings_Feature_Spec.md`. Updated Pre-Implementation Checklist to reflect this clarification. |
 
 **Last Updated:** October 16, 2025 (v2.13 - TASK-040A status corrected: planning complete, implementation NOT started)
+

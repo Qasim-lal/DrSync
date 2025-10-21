@@ -31,6 +31,7 @@ import assistanceRoutes from './routes/assistanceRoutes';
 import supportAnalyticsRoutes from './routes/supportAnalyticsRoutes';
 import whatsappRoutes from './routes/whatsappRoutes';
 import whatsappMetricsRoutes from './routes/whatsappMetricsRoutes';
+import notificationSettingsRoutes from './routes/notificationSettings';
 
 // Load environment variables
 dotenv.config();
@@ -92,6 +93,7 @@ app.get('/', (_req, res) => {
         superAdmin: '/api/super-admin',
         communications: '/api/communications',
         whatsapp: '/api/whatsapp',
+        notificationSettings: '/api/notification-settings',
       }
     },
     timestamp: new Date().toISOString(),
@@ -121,6 +123,7 @@ app.use('/api/super-admin/support', assistanceRoutes);
 app.use('/api/super-admin/support', supportAnalyticsRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/whatsapp', whatsappMetricsRoutes);
+app.use('/api/notification-settings', notificationSettingsRoutes);
 
 // API documentation
 app.get('/api/docs', (_req, res) => {
@@ -143,6 +146,7 @@ app.get('/api/docs', (_req, res) => {
       superAdmin: '/api/super-admin',
       communications: '/api/communications',
       whatsapp: '/api/whatsapp',
+      notificationSettings: '/api/notification-settings',
     },
     documentation: 'See /docs/DrSync_API_Documentation.md for detailed API documentation'
   });

@@ -89,6 +89,9 @@ model Organization {
   staffInvitations StaffInvitation[]
   supportTickets SupportTicket[]
   appointmentReminders AppointmentReminder[]
+  notificationSettings NotificationSettings?
+  messageCostTracking MessageCostTracking[]
+  patientNotificationOverrides PatientNotificationOverride[]
   
   @@map("organizations")
 }
@@ -301,6 +304,7 @@ model Patient {
   
   appointments   Appointment[]
   messages       WhatsAppMessage[]
+  notificationOverrides PatientNotificationOverride[]
   
   // No unique constraint on phone - allows multiple patients per phone number
   // This supports families using same WhatsApp number for multiple patients
@@ -434,6 +438,10 @@ model AppointmentReminder {
   scheduledFor      DateTime     // When reminder should be sent
   sentAt            DateTime?    // When reminder was actually sent
   
+  // TASK-040A: Manual reminder support
+  trigger           ReminderTrigger @default(AUTOMATIC) // Automatic or manual
+  sentBy            String?      // User ID who sent (for MANUAL triggers)
+  
   // Status tracking
   status            ReminderStatus @default(PENDING)
   
@@ -460,6 +468,7 @@ model AppointmentReminder {
   @@index([organizationId, scheduledFor]) // For finding reminders to send
   @@index([status, scheduledFor])         // For processing pending reminders
   @@index([appointmentId, reminderType])  // For checking if reminder already exists
+  @@index([trigger])                      // For filtering manual vs automatic
   @@map("appointment_reminders")
 }
 
@@ -478,6 +487,185 @@ enum ReminderStatus {
   FAILED      // Failed to send after retries
   SKIPPED     // Skipped due to settings or patient preference
   CANCELLED   // Cancelled (e.g., appointment cancelled)
+}
+
+enum ReminderTrigger {
+  AUTOMATIC   // Sent automatically by scheduler
+  MANUAL      // Sent manually by staff
+}
+
+// ============================================================================
+// NOTIFICATION SETTINGS & PREFERENCES (TASK-040A)
+// ============================================================================
+
+// Organization-level notification preferences
+model NotificationSettings {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Language preference (inherited from Organization, but can override)
+  language       String   @default("en") // "en" | "ur"
+  
+  // Enabled notification types (Phase 1)
+  bookingConfirmationsEnabled Boolean @default(true)
+  remindersEnabled            Boolean @default(true)
+  followUpsEnabled            Boolean @default(false)
+  medicationRemindersEnabled  Boolean @default(false)
+  wellnessChecksEnabled       Boolean @default(false)
+  
+  // Additional notification types (Phase 2)
+  preAppointmentInstructionsEnabled Boolean @default(false)
+  arrivalNotificationEnabled        Boolean @default(false)
+  appointmentCompletionEnabled      Boolean @default(false)
+  reschedulingConfirmationEnabled   Boolean @default(true)
+  cancellationConfirmationEnabled   Boolean @default(true)
+  noShowFollowupEnabled             Boolean @default(false)
+  paymentReminderEnabled            Boolean @default(false)
+  
+  // Reminder timing
+  reminderTiming ReminderTiming @default(HOURS_24)
+  customReminderMinutes Int?  // Only if reminderTiming = CUSTOM
+  
+  // Channels (future: EMAIL, SMS support)
+  enabledChannels String[] @default(["WHATSAPP"])
+  
+  // Quiet hours (no notifications sent during this period)
+  quietHoursEnabled Boolean @default(false)
+  quietHoursStart   String? // HH:MM format (e.g., "22:00")
+  quietHoursEnd     String? // HH:MM format (e.g., "08:00")
+  
+  // Cost controls
+  monthlyCap        Decimal? @db.Decimal(10, 2) // Maximum monthly spending
+  currentMonthSpend Decimal @default(0) @db.Decimal(10, 2)
+  alertThreshold    Int @default(80) // Percentage (80% of cap)
+  
+  // Phase 2: Advanced features
+  presetMode              PresetMode @default(RECOMMENDED)
+  patientSegmentationEnabled Boolean @default(false)
+  smartBundlingEnabled    Boolean @default(false)
+  costPerMessage          Decimal @default(3.50) @db.Decimal(10, 2) // PKR per message
+  
+  // Monthly appointment average (for cost calculations)
+  averageMonthlyAppointments Int @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([organizationId])
+  @@map("notification_settings")
+}
+
+enum PresetMode {
+  BUDGET       // Reminders only - minimal cost
+  RECOMMENDED  // Essential messages - balanced
+  PREMIUM      // All messages - maximum engagement
+  CUSTOM       // User-configured settings
+}
+
+// Message cost tracking for analytics (Phase 2)
+model MessageCostTracking {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Tracking period
+  periodYear     Int      // e.g., 2025
+  periodMonth    Int      // 1-12
+  
+  // Message counts by type
+  bookingConfirmationsSent      Int @default(0)
+  remindersSent                 Int @default(0)
+  followUpsSent                 Int @default(0)
+  medicationRemindersSent       Int @default(0)
+  wellnessChecksSent            Int @default(0)
+  preInstructionsSent           Int @default(0)
+  arrivalNotificationsSent      Int @default(0)
+  completionMessagesSent        Int @default(0)
+  reschedulingConfirmationsSent Int @default(0)
+  cancellationConfirmationsSent Int @default(0)
+  noShowFollowupsSent           Int @default(0)
+  paymentRemindersSent          Int @default(0)
+  
+  // Totals
+  totalMessagesSent             Int @default(0)
+  messagesSavedBySettings       Int @default(0) // Messages not sent due to settings
+  messagesBundled               Int @default(0) // Messages combined via smart bundling
+  
+  // Cost tracking
+  estimatedCost     Decimal @default(0) @db.Decimal(10, 2)
+  actualCost        Decimal? @db.Decimal(10, 2) // If available from WhatsApp API
+  costSaved         Decimal @default(0) @db.Decimal(10, 2) // Cost saved by disabled messages
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([organizationId, periodYear, periodMonth])
+  @@index([organizationId, periodYear, periodMonth])
+  @@map("message_cost_tracking")
+}
+
+// Patient-specific notification overrides (Phase 2)
+model PatientNotificationOverride {
+  id        String   @id @default(cuid())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Patient segmentation
+  patientSegment PatientSegment @default(REGULAR)
+  
+  // Override specific notification types for this patient
+  bookingConfirmationsEnabled Boolean?
+  remindersEnabled            Boolean?
+  followUpsEnabled            Boolean?
+  medicationRemindersEnabled  Boolean?
+  wellnessChecksEnabled       Boolean?
+  
+  // Custom quiet hours for this patient
+  quietHoursEnabled Boolean @default(false)
+  quietHoursStart   String? // HH:MM format
+  quietHoursEnd     String? // HH:MM format
+  
+  // Preferred language override
+  language          String? // "en" | "ur"
+  
+  // Communication preferences
+  preferredChannel  String? // "WHATSAPP" | "SMS" | "EMAIL"
+  doNotContact      Boolean @default(false) // Patient opted out
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([patientId, organizationId])
+  @@index([organizationId, patientSegment])
+  @@index([patientId])
+  @@map("patient_notification_overrides")
+}
+
+enum PatientSegment {
+  NEW          // First-time patient (0-1 appointments)
+  REGULAR      // Regular patient (2-10 appointments)
+  VIP          // VIP patient (10+ appointments or flagged by staff)
+  AT_RISK      // Patient who missed appointments
+  INACTIVE     // Patient who hasn't visited in 6+ months
+}
+
+enum ReminderTiming {
+  IMMEDIATELY      // 0 minutes
+  MINUTES_30       // 30 minutes
+  HOURS_1          // 1 hour
+  HOURS_2          // 2 hours
+  HOURS_4          // 4 hours
+  HOURS_24         // 24 hours (default)
+  HOURS_48         // 48 hours
+  HOURS_72         // 72 hours
+  CUSTOM           // Custom timing (use customReminderMinutes)
 }
 
 // ============================================================================
