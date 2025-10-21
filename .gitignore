@@ -150,6 +150,11 @@ simple-*.js
 # Temporary files
 *.tmp
 *.temp
+token.txt
+
+# Temporary task tracking and testing notes
+TASK-*.md
+TESTING*.md
 
 # Test results
 test-results/
