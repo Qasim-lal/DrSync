@@ -7,6 +7,8 @@ Organized documentation for the DrSync Healthcare Appointment Management System.
 ### `/core/`
 **Core project documentation** - Essential references
 - `DrSync_SRS.md` - Software Requirements Specification
+- `drsync_prd.md` - Product Requirements Document
+- `DrSync_TDD.md` - Technical Design Document
 - `DrSync_DevSpecs.md` - Development Specifications
 - `DrSync_API_Documentation.md` - API Reference
 - `DrSync_Task_Tracking.md` - Task tracking and project management
@@ -44,21 +46,26 @@ Organized documentation for the DrSync Healthcare Appointment Management System.
 
 ### `/tasks/`
 **Task completion reports** - Organized by task number
-- `/TASK-036/` - Organization registration
+- `/TASK-032-033/` - Initial verification and setup
+- `/TASK-035/` - Organization registration
+- `/TASK-036/` - Staff invitations and RBAC
 - `/TASK-038/` - Multi-client architecture
 - `/TASK-039/` - WhatsApp integration
 - `/TASK-041/` - Appointment management
 - `/TASK-042/` - Additional features
+- `/TASK-045/` - SSE Dashboard integration
 
 ### `/guides/`
 **User and developer guides** - How-to documentation
 
 #### `/guides/setup/`
 - Setup and installation guides
+- Email configuration strategy
 
 #### `/guides/testing/`
 - Testing guides and procedures
 - Quick start testing documentation
+- Docker testing guides
 
 #### `/guides/deployment/`
 - Deployment guides
@@ -71,6 +78,7 @@ Organized documentation for the DrSync Healthcare Appointment Management System.
 ### `/archive/`
 **Archived documentation** - Old or superseded documents
 - Historical completion reports
+- Old validation and verification reports
 - Outdated documentation
 
 ## 🔍 Finding Documentation
@@ -96,7 +104,9 @@ Organized documentation for the DrSync Healthcare Appointment Management System.
 
 ## 🗂️ Quick Links
 
-- [Software Requirements](core/DrSync_SRS.md)
+- [Software Requirements Specification](core/DrSync_SRS.md)
+- [Product Requirements Document](core/drsync_prd.md)
+- [Technical Design Document](core/DrSync_TDD.md)
 - [API Documentation](core/DrSync_API_Documentation.md)
 - [Task Tracking](core/DrSync_Task_Tracking.md)
 - [Testing Guide](guides/testing/QUICK_START_Testing.md)
