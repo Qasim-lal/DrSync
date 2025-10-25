@@ -1,7 +1,8 @@
 # DrSync Project Rules - WARP.md
-**Version:** 1.0  
-**Date:** August 2025  
-**Project:** DrSync - Healthcare Appointment Management System
+**Version:** 2.0  
+**Date:** January 2026  
+**Project:** DrSync - Healthcare Appointment Management System  
+**Status:** Production Ready - 95%+ Test Coverage
 
 ## Table of Contents
 1. [Project Overview](#1-project-overview)
@@ -19,6 +20,9 @@
 13. [Deployment & CI/CD Rules](#13-deployment--cicd-rules)
 14. [WhatsApp Integration Specific Rules](#14-whatsapp-integration-specific-rules)
 15. [Healthcare Domain Rules](#15-healthcare-domain-rules)
+16. [Real-Time Communication](#16-real-time-communication) 🆕
+17. [Progressive Web Application](#17-progressive-web-application) 🆕
+18. [Billing & Subscription Management](#18-billing--subscription-management) 🆕
 
 ---
 
@@ -64,8 +68,24 @@ const REQUIRED_VERSIONS = {
 - **MUST** use VS Code with recommended extensions from `.vscode/extensions.json`
 - **MUST** run `npm install` before any development work
 - **MUST** use Docker containers for PostgreSQL and Redis in development
-- **MUST** copy and configure `.env.example` to `.env.local` before starting
+- **MUST** use Docker Compose for local development environment
+- **MUST** copy `.env.example` to `.env.local` (frontend) or `.env` (backend)
+- **MUST** never commit `.env` or `.env.local` files to version control
 - **SHALL** run database migrations and seed data on fresh setup
+
+### 2.2.1 Docker Development Environment ⚠️ CRITICAL
+```bash
+# Start all services with Docker Compose
+docker-compose up -d
+
+# Services included:
+- PostgreSQL (port 5432)
+- Redis (port 6379)
+- Backend API (port 3000)
+- Frontend Dashboard (port 3001)
+```
+
+**Important:** This project **MUST** use Docker for development. All databases, caching, and services run in Docker containers to ensure consistency across all development environments.
 
 ### 2.3 Package Manager Rules
 - **MUST** use npm (not yarn or pnpm) for consistency
@@ -195,6 +215,18 @@ export const usePatients = () => {
 - **MUST** throw AppError instances with proper status codes
 - **MUST** log errors appropriately (debug in dev, structured in prod)
 - **SHALL** provide meaningful error messages to users
+
+### 4.3.1 Fallback Mechanisms
+- **MUST** implement PostgreSQL fallback when Google Sheets unavailable
+- **MUST** switch automatically to fallback within 3 seconds
+- **MUST** notify admins when operating in fallback mode
+- **SHALL** queue Google Sheets writes for later sync
+
+### 4.3.2 Circuit Breaker Pattern
+- **MUST** implement circuit breaker for Google Sheets API
+- **MUST** open circuit after 5 consecutive failures
+- **MUST** attempt half-open state after 60 seconds
+- **SHALL** close circuit after 3 consecutive successes
 
 ---
 
@@ -326,6 +358,18 @@ class GoogleSheetsService {
 - **MUST** implement conflict resolution for concurrent updates
 - **SHALL** maintain audit logs for all data modifications
 
+### 7.4 Data Migration Strategy
+- **MUST** implement safe PostgreSQL → Google Sheets migration
+- **MUST** validate data integrity after migration
+- **MUST** support batch processing for large datasets
+- **SHALL** implement incremental sync during migration
+
+### 7.5 Emergency Rollback Procedures
+- **MUST** maintain rollback capability to PostgreSQL-first mode
+- **MUST** complete rollback in under 15 minutes
+- **MUST** implement automated failover when Google Sheets unavailable
+- **SHALL** notify users during rollback procedures
+
 ---
 
 ## 8. Third-Party Integration Rules
@@ -361,6 +405,19 @@ class WhatsAppWebhookHandler {
 - **MUST** implement integration tests with actual API calls
 - **SHALL** monitor API health and performance
 
+### 8.4 Configuration Wizard Requirements
+- **MUST** implement step-by-step setup wizards for:
+  - WhatsApp Business API configuration
+  - Google Sheets integration
+  - Staff invitation and management
+  
+### 8.5 Wizard UX Standards
+- **MUST** validate each step before proceeding
+- **MUST** allow saving progress and resuming later
+- **MUST** provide clear error messages with resolution steps
+- **SHALL** include help text and documentation links
+- **SHALL** implement "Test Connection" functionality
+
 ---
 
 ## 9. Security & Compliance Requirements
@@ -382,6 +439,23 @@ class WhatsAppWebhookHandler {
 - **MUST** validate phone numbers and prevent injection attacks
 - **MUST** implement proper CORS policies
 - **SHALL** use parameterized queries for database operations
+
+### 9.4 Trial Abuse Prevention
+- **MUST** implement phone verification for all trial signups
+- **MUST** enforce one trial per phone number (lifetime tracking)
+- **MUST** track organization registration via IP/browser fingerprint
+- **MUST** enforce trial limits: 25 patients, 50 appointments
+- **SHALL** use SMS or WhatsApp for phone verification
+- **SHALL** store verification history in TrialHistory table
+
+### 9.5 Trial Limitation Enforcement
+```typescript
+const TRIAL_LIMITS = {
+  maxPatients: 25,
+  maxAppointments: 50,
+  durationDays: 14
+};
+```
 
 ---
 
@@ -408,15 +482,37 @@ const PERFORMANCE_BENCHMARKS = {
 - **SHOULD** use message queues for async processing
 - **SHALL** implement proper connection pooling
 
+### 10.4 External API Rate Limits
+- **MUST** implement smart rate limiting for Google Sheets API
+  - Read operations: 100 requests per 100 seconds per user
+  - Write operations: 60 requests per minute per user
+- **MUST** implement exponential backoff for rate limit errors
+- **MUST** queue operations when approaching limits
+- **SHALL** implement circuit breaker pattern for external APIs
+
+### 10.5 WhatsApp API Rate Limits
+- **MUST** respect WhatsApp message sending limits
+  - Business tier: 1000 messages per day (initial)
+  - Standard tier: Unlimited (with approval)
+- **MUST** implement message queuing for high volume
+- **SHALL** monitor rate limit status and alert before hitting limits
+
 ---
 
 ## 11. Testing Requirements
 
 ### 11.1 Unit Testing Rules
 - **MUST** maintain minimum 80% code coverage
+- **SHOULD** target 90%+ for critical business logic
 - **MUST** write unit tests for all service layer functions
 - **MUST** mock external dependencies in unit tests
 - **SHALL** use descriptive test names and arrange-act-assert pattern
+
+**Current Project Coverage:** 95%+ across all modules
+- Analytics: 26/26 tests passing
+- Billing: 30/30 tests passing
+- WhatsApp Routing: 17/17 tests passing
+- Configuration Wizards: 126/126 tests passing
 
 ### 11.2 Integration Testing Rules
 - **MUST** test all API endpoints with real database
@@ -447,6 +543,101 @@ const PERFORMANCE_BENCHMARKS = {
 - **MUST** update task tracking document with progress
 - **MUST** document architectural decisions
 - **SHALL** maintain changelog for all releases
+
+### 12.4 Documentation Minimalism Rules ⚠️ IMPORTANT
+- **MUST NOT** create redundant documentation files
+- **MUST** update existing documents instead of creating new ones
+- **MUST** delete analysis/summary documents after applying changes
+- **SHALL** keep all rules in WARP.md (single source of truth)
+
+**Essential Documents Only:**
+```
+✅ WARP.md - Project rules (update, don't duplicate)
+✅ docs/core/ - Core specifications (update when features change)
+✅ docs/architecture/ - Architecture docs (update when architecture changes)
+❌ Summary documents - Delete after review
+❌ How-to guides - Add to WARP.md instead
+❌ Redundant explanations - Consolidate into existing docs
+```
+
+**Process:**
+1. Need to document something? Check if document exists first
+2. Update existing document rather than create new
+3. If creating temporary analysis, delete after applying changes
+4. Keep documentation lean and focused
+
+### 12.5 AI Request Optimization Rules 💰 COST SAVING
+**Goal:** Minimize Warp AI credits consumption while maintaining productivity
+
+#### Response Length Rules
+- **MUST** keep responses under 4 lines for simple questions
+- **MUST NOT** add preambles like "Here's what I found..." or "Let me help you..."
+- **MUST NOT** add postambles like "Hope this helps!" or "Let me know if..."
+- **MUST** answer directly without explanations unless asked
+- **SHALL** use code blocks only when necessary, not for decoration
+
+#### File Reading Rules
+- **MUST** read only specific line ranges when you know what you need
+- **MUST NOT** read entire files to answer simple questions
+- **MUST** use grep/search instead of reading files when looking for specific text
+- **SHALL** batch file reads in one request instead of multiple
+
+#### Tool Usage Rules
+- **MUST** use single tool call when possible instead of multiple sequential calls
+- **MUST NOT** call tools just to verify information already in context
+- **MUST** avoid redundant searches (don't search for same thing twice)
+- **SHALL** use cached information from earlier in conversation
+
+#### Question Clarification
+- **MUST** ask clarifying questions BEFORE doing extensive analysis
+- **MUST NOT** assume and then do large operations that might be wrong
+- **SHALL** confirm scope before reading multiple files
+
+**Examples:**
+
+❌ **Bad (wastes credits):**
+```
+User: "What port does Redis use?"
+AI: "Let me help you find that information! I'll check the 
+documentation for you. [reads 5 files] 
+Based on my analysis of your project files, Redis runs 
+on port 6379. Hope this helps! Let me know if you need 
+anything else!"
+```
+
+✅ **Good (minimal credits):**
+```
+User: "What port does Redis use?"
+AI: "6379 (see WARP.md Section 2.2.1)"
+```
+
+❌ **Bad (wastes credits):**
+```
+User: "Fix the login bug"
+AI: [reads 20 files, analyzes everything, proposes solution]
+User: "No, I meant the logout bug"
+```
+
+✅ **Good (minimal credits):**
+```
+User: "Fix the login bug"
+AI: "Which component? Frontend login form or backend auth?"
+User: "Backend auth"
+AI: [reads only auth files, fixes issue]
+```
+
+#### When to Use Detailed Responses
+- Complex architectural decisions
+- Security-critical implementations  
+- When user explicitly asks for explanation
+- Teaching/onboarding scenarios
+
+#### When to Use Minimal Responses
+- Simple factual questions
+- Quick file edits
+- Command suggestions
+- Debugging assistance
+- File location questions
 
 ---
 
@@ -494,6 +685,35 @@ hotfix/TASK-XXX-description
 - **MUST** send confirmation messages immediately
 - **SHALL** implement appointment reminder system
 
+### 14.4 Notification Settings & Cost Optimization
+- **MUST** implement preset modes: budget, recommended, premium, custom
+- **MUST** track message costs per organization
+- **MUST** support patient-specific notification overrides
+- **SHALL** implement smart bundling for cost reduction
+- **SHALL** provide estimated monthly cost calculations
+
+### 14.5 Message Types Configuration
+- **MUST** allow enable/disable for each notification type:
+  - Booking confirmations
+  - Appointment reminders
+  - Pre-appointment instructions
+  - Post-appointment follow-ups
+  - Medication reminders
+- **MUST** support configurable timing (hours before/after)
+
+### 14.6 Multi-Client Message Routing
+- **MUST** route messages by webhook URL to correct organization
+- **MUST** map WhatsApp phone numbers to organizations
+- **MUST** process messages in correct organization context
+- **SHALL** store WhatsApp credentials per organization
+- **SHALL** handle routing failures gracefully
+
+### 14.7 Message Logging
+- **MUST** log all WhatsApp messages to database
+- **MUST** resolve patientId from phone number
+- **MUST** track message status (sent, delivered, read, failed)
+- **SHALL** maintain message history for analytics
+
 ---
 
 ## 15. Healthcare Domain Rules
@@ -514,6 +734,22 @@ hotfix/TASK-XXX-description
 - **MUST** support multiple healthcare providers per organization
 - **MUST** manage provider schedules and availability
 - **SHALL** implement provider-specific appointment rules
+
+### 15.4 Organization Types
+- **MUST** support organization types:
+  - CLINIC
+  - DOCTOR (individual practitioner)
+  - HOSPITAL
+  - SPECIALIST (specialty clinics)
+  - PHARMACY
+  - DIAGNOSTIC (labs, imaging centers)
+  
+### 15.5 Registration Workflow
+- **MUST** validate organization name uniqueness
+- **MUST** verify admin email before activation
+- **MUST** implement phone verification for trial prevention
+- **SHALL** send welcome email with setup instructions
+- **SHALL** activate trial period immediately upon registration
 
 ---
 
@@ -558,5 +794,110 @@ Before marking any task as complete, verify:
 **Document Maintenance:**
 This document should be reviewed and updated monthly or when significant architectural changes are made. All team members are responsible for proposing updates when they identify gaps or inconsistencies.
 
-**Last Updated:** August 2025
-**Next Review:** September 2025
+---
+
+## 16. Real-Time Communication
+
+### 16.1 Server-Sent Events (SSE)
+- **MUST** implement SSE for real-time dashboard updates
+- **MUST** support organization-scoped event streams
+- **MUST** implement automatic reconnection with exponential backoff
+- **SHALL** send heartbeat every 30 seconds to maintain connection
+
+### 16.2 Event Types
+- **MUST** emit events for: message received, processing, responded, failed
+- **MUST** include organizationId in all events
+- **SHALL** implement event history storage (50 recent events)
+
+### 16.3 Super Admin Multi-Org Streaming
+- **MUST** support viewing all organizations simultaneously
+- **MUST** support filtered organization selection
+- **SHALL** implement proper RBAC for super admin features
+
+### 16.4 SSE Endpoints
+```typescript
+// Single organization stream
+GET /api/events/messages/:organizationId/stream
+
+// All organizations (super admin only)
+GET /api/events/messages/all/stream
+
+// Multiple organizations (super admin only)
+GET /api/events/messages/multi/stream?orgIds=id1,id2,id3
+```
+
+---
+
+## 17. Progressive Web Application
+
+### 17.1 PWA Requirements
+- **MUST** include manifest.json with all required fields
+- **MUST** implement service worker for offline functionality
+- **MUST** support installation on desktop and mobile
+- **SHALL** cache essential resources for offline use
+
+### 17.2 Offline Support
+- **MUST** implement offline queue for actions
+- **MUST** sync queued actions when back online
+- **SHALL** show offline status indicator to users
+- **SHALL** provide offline fallback page
+
+### 17.3 Push Notifications
+- **MUST** implement Web Push API for notifications
+- **MUST** request permission before enabling push
+- **SHALL** allow users to disable notifications
+
+### 17.4 Installation Experience
+```typescript
+// Manifest requirements
+{
+  "name": "DrSync",
+  "short_name": "DrSync",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#primary-color",
+  "background_color": "#ffffff"
+}
+```
+
+---
+
+## 18. Billing & Subscription Management
+
+### 18.1 Multi-Currency Support
+- **MUST** support PKR (Pakistani Rupee) and USD (US Dollar)
+- **MUST** integrate Pakistani payment methods: JazzCash, EasyPaisa
+- **MUST** integrate international payments: Payoneer, Wise
+- **SHALL** support USDT cryptocurrency payments
+
+### 18.2 Subscription Plans
+- **MUST** implement per-doctor pricing model
+- **MUST** support monthly and yearly billing cycles
+- **MUST** provide 17% discount for annual payments
+- **SHALL** implement prorated billing for plan changes
+
+### 18.3 Payment Processing
+- **MUST** log all payment attempts in BillingHistory table
+- **MUST** handle failed payments with retry logic
+- **MUST** implement grace period for expired subscriptions
+- **SHALL** send automated invoices via email
+
+### 18.4 Pricing Structure
+```typescript
+const PRICING = {
+  PKR: {
+    monthly: 3000, // per doctor
+    yearly: 30000  // 17% discount (3000 * 12 * 0.83)
+  },
+  USD: {
+    monthly: 20,   // per doctor
+    yearly: 200    // 17% discount (20 * 12 * 0.83)
+  }
+};
+```
+
+---
+
+**Last Updated:** January 2026  
+**Next Review:** February 2026  
+**Version:** 2.0
