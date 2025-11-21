@@ -18,6 +18,7 @@ model Organization {
   google_sheets_id      String?           @db.VarChar(255)
   whatsapp_phone_number String?           @db.VarChar(20)
   whatsapp_api_token    String?
+  whatsapp_credentials    Json?
   timezone              String?           @default("UTC") @db.VarChar(50)
   language              String?           @default("en") @db.VarChar(10)
   subscription_tier     String?           @default("basic") @db.VarChar(50)
@@ -45,7 +46,7 @@ model User {
   first_name      String       @db.VarChar(100)
   last_name       String       @db.VarChar(100)
   phone_number    String?      @db.VarChar(20)
-  role            user_role    @default(staff)
+  role            UserRole    @default(STAFF)
   specialization  String?      @db.VarChar(255)
   license_number  String?      @db.VarChar(100)
   is_active       Boolean?     @default(true)
@@ -251,8 +252,12 @@ enum provider_status {
   on_leave
 }
 
-enum user_role {
-  admin
-  provider
-  staff
+enum UserRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  DOCTOR
+  STAFF
+  PROVIDER
+
+  @@map("user_role")
 }

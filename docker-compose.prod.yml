@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: drsync_prod
       POSTGRES_USER: drsync_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD_RAW}
     ports:
       - "5432:5432"
     volumes:
@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     container_name: drsync_redis
     restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD_RAW}
     ports:
       - "6379:6379"
     volumes:

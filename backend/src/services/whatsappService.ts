@@ -156,15 +156,15 @@ class WhatsAppService {
       const prisma = getPrismaClient();
       const organizations = await prisma.organization.findMany({
         where: {
-          isActive: true,
-          whatsappCredentials: { not: Prisma.JsonNull },
-          whatsappPhoneNumber: { not: null }
+          is_active: true,
+          whatsapp_credentials: { not: Prisma.JsonNull },
+          whatsapp_phone_number: { not: null }
         },
         select: {
           id: true,
           name: true,
-          whatsappPhoneNumber: true,
-          whatsappCredentials: true
+          whatsapp_phone_number: true,
+          whatsapp_credentials: true
           // whatsappWebhookUrl: true // Field exists in schema but not in select type
         }
       });
@@ -174,9 +174,9 @@ class WhatsAppService {
       this.phoneToOrgMapping.clear();
 
       for (const org of organizations) {
-        await this.initializeClient(org.id, org.whatsappCredentials as any);
+        await this.initializeClient(org.id, org.whatsapp_credentials as any);
         // Phone mapping is set inside initializeClient to ensure atomicity
-        logger.info(`Initialized WhatsApp client for ${org.name} (${org.whatsappPhoneNumber})`);
+        logger.info(`Initialized WhatsApp client for ${org.name} (${org.whatsapp_phone_number})`);
       }
 
       logger.info(`WhatsApp service initialized with ${organizations.length} clients`);
@@ -195,10 +195,10 @@ class WhatsAppService {
       const prisma = getPrismaClient();
       const organization = await prisma.organization.findUnique({
         where: { id: organizationId },
-        select: { whatsappPhoneNumber: true, name: true }
+        select: { whatsapp_phone_number: true, name: true }
       });
 
-      if (!organization || !organization.whatsappPhoneNumber) {
+      if (!organization || !organization.whatsapp_phone_number) {
         throw new Error('Organization not found or WhatsApp phone number not configured');
       }
 
@@ -207,14 +207,14 @@ class WhatsAppService {
 
       const client: WhatsAppClient = {
         organizationId,
-        phoneNumber: organization.whatsappPhoneNumber,
+        phoneNumber: organization.whatsapp_phone_number,
         credentials: decryptedCredentials,
-        isActive: true,
+        is_active: true,
         lastActivityAt: new Date()
       };
 
       this.clients.set(organizationId, client);
-      this.phoneToOrgMapping.set(organization.whatsappPhoneNumber, organizationId);
+      this.phoneToOrgMapping.set(organization.whatsapp_phone_number, organizationId);
 
       logger.info(`WhatsApp client initialized for organization ${organizationId}`);
 
@@ -337,7 +337,7 @@ class WhatsAppService {
         try {
           const prisma = getPrismaClient();
           const org = await prisma.organization.findFirst({
-            where: { whatsappCredentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
+            where: { whatsapp_credentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
             select: { id: true }
           });
           if (org) return org.id;
@@ -938,7 +938,7 @@ class WhatsAppService {
       return await prisma.provider.findMany({
         where: {
           organizationId: organizationId,
-          isActive: true
+          status: 'active'
         },
         select: {
           id: true,

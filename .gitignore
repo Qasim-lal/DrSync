@@ -182,3 +182,4 @@ __pycache__/
 # Docker volumes data
 postgres_data/
 redis_data/
+backend/backend_log.txt
