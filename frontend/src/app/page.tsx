@@ -21,7 +21,7 @@ export default function HomePage() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const response = await fetch('http://localhost:3001/health');
+        const response = await fetch(`http://${window.location.hostname}:3001/health`);
         const data = await response.json();
         setHealthStatus(data.data);
       } catch (error) {

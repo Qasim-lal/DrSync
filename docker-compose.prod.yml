@@ -45,6 +45,7 @@ services:
       DATABASE_URL: postgresql://drsync_user:${DB_PASSWORD}@postgres:5432/drsync_prod
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      CORS_ORIGIN: ${CORS_ORIGIN}
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       JWT_SECRET: ${JWT_SECRET}
