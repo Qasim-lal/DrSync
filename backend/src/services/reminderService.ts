@@ -26,7 +26,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import cron from 'node-cron';
-import { Prisma } from '../generated/prisma';
+import { Prisma } from '@prisma/client';
 import { logger } from '../utils/logger';
 import getPrismaClient from './prisma';
 import whatsappService from './whatsappService';
@@ -326,7 +326,7 @@ class ReminderService {
         }
       });
 
-      return appointments.map(apt => ({
+      return appointments.map((apt: any) => ({
         id: apt.id,
         patientId: apt.patientId,
         providerId: apt.providerId,
@@ -643,7 +643,7 @@ class ReminderService {
       });
 
       const result: any = { total: 0 };
-      stats.forEach(stat => {
+      stats.forEach((stat: any) => {
         result[stat.status.toLowerCase()] = stat._count.id;
         result.total += stat._count.id;
       });

@@ -10,7 +10,7 @@
  * @version 1.0.0
  */
 
-import { PrismaClient, PaymentIntent, BillingHistory } from '../generated/prisma';
+import { PrismaClient, PaymentIntent, BillingHistory } from '@prisma/client';
 import { logger } from '../utils/logger';
 
 const prisma = new PrismaClient();

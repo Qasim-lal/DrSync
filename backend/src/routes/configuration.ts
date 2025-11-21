@@ -7,7 +7,7 @@ import express from 'express';
 import * as configController from '../controllers/configurationController';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../utils/roleUtils';
-import { UserRole } from '../generated/prisma';
+import { UserRole } from '@prisma/client';
 
 const router = express.Router();
 

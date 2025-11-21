@@ -116,7 +116,7 @@ export default function SystemHealthPage() {
   const alerts = [
     {
       id: '1',
-      severity: 'warning' as const,
+      severity: 'critical' as const,
       service: 'WhatsApp API',
       message: 'Response time increased to 285ms (threshold: 250ms)',
       occurredAt: '2 hours ago',

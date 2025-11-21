@@ -9,7 +9,7 @@
  */
 
 import { Intent } from '../intentRecognitionService';
-import { Organization, Patient } from '../../generated/prisma';
+import { Organization, Patient } from '@prisma/client';
 
 // Handler execution context
 export interface IntentHandlerContext {

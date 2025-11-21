@@ -6,7 +6,7 @@
 
 import jwt from 'jsonwebtoken';
 import { getPrismaClient } from './prisma';
-import { UserRole } from '../generated/prisma';
+import { UserRole } from '@prisma/client';
 
 const prisma = getPrismaClient();
 

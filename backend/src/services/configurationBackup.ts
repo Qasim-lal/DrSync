@@ -10,7 +10,7 @@
  */
 
 import { getPrismaClient } from './prisma';
-import { Organization, User, StaffInvitation } from '../generated/prisma';
+import { Organization, User, StaffInvitation } from '@prisma/client';
 import { z } from 'zod';
 import * as crypto from 'crypto';
 

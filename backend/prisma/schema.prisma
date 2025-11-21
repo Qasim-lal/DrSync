@@ -1,10 +1,6 @@
-// DrSync Healthcare Appointment Management System
-// Prisma Schema Definition
-// Version: 1.0
-
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -12,1245 +8,251 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================================================
-// ORGANIZATION & USER MANAGEMENT
-// ============================================================================
-
-// Multi-tenant organization model
 model Organization {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique // URL-friendly identifier
-  organizationType OrganizationType @default(CLINIC) // Type of healthcare organization
-  email       String   @unique
-  phone       String?
-  address     String?
-  website     String?
-  
-  // Subscription and billing
-  subscriptionPlan    SubscriptionPlan @default(FREE)
-  subscriptionStatus  SubscriptionStatus @default(TRIAL)
-  subscriptionEndsAt  DateTime?
-  
-  // Google Sheets integration (client-owned)
-  googleSheetsId      String?  // Google Sheets document ID (client's own sheet)
-  googleSheetsUrl     String?  // Full URL to the Google Sheet
-  googleCredentials   Json?    // Encrypted Google OAuth credentials for client's sheet
-  googleSheetsTokens  Json?    // OAuth tokens (access, refresh, expiry, email)
-  googleSheetsStructure String @default("TABS") // "TABS" or "SEPARATE_SHEETS"
-  googleSheetsSyncEnabled Boolean @default(false) // Sync service active
-  googleSheetsSyncFrequency Int? // Sync frequency in minutes
-  
-  // WhatsApp Business API settings (client's own WhatsApp)
-  whatsappPhoneNumber String?  // Client's WhatsApp Business number
-  whatsappBusinessId  String?  // Client's WhatsApp Business ID  
-  whatsappCredentials Json?    // Client's WhatsApp API credentials (encrypted)
-  whatsappWebhookUrl  String?  // Unique webhook URL for this client
-  whatsappWebhookToken String? // Webhook security token
-  whatsappVerifyToken String?  // WhatsApp verification token
-  whatsappPhoneVerified Boolean @default(false) // Phone number verification status
-  whatsappConfigured  Boolean @default(false) // WhatsApp setup complete
-  
-  // Setup progress tracking
-  setupProgress       Json?    // Track wizard completion status
-  
-  // System settings
-  timezone            String   @default("UTC")
-  language            String   @default("en")  // Primary language (en, ur)
-  region              String   @default("PAKISTAN") // "PAKISTAN" or "INTERNATIONAL"
-  isActive            Boolean  @default(true)
-  
-  // Subscription billing
-  subscriptionType    String?  // "MONTHLY" or "YEARLY"
-  lastBilledAt        DateTime?
-  nextBillingDate     DateTime?
-  doctorCount         Int      @default(1)
-  paymentMethod       String?  // "JAZZCASH", "EASYPAISA", "PAYONEER", "USDT", etc.
-  
-  // Trial limits
-  maxPatients         Int?     // Maximum patients allowed (for trial/plan limits)
-  maxAppointments     Int?     // Maximum appointments allowed (for trial/plan limits)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  users       User[]
-  patients    Patient[]
-  providers   Provider[]
-  appointments Appointment[]
-  messages    WhatsAppMessage[]
-  templates   MessageTemplate[]
-  auditLogs   AuditLog[]
-  billingHistory BillingHistory[]
-  billingRecords BillingRecord[]
-  paymentIntents PaymentIntent[]
-  systemMetrics SystemMetric[]
-  staffInvitations StaffInvitation[]
-  supportTickets SupportTicket[]
-  appointmentReminders AppointmentReminder[]
-  notificationSettings NotificationSettings?
-  messageCostTracking MessageCostTracking[]
-  patientNotificationOverrides PatientNotificationOverride[]
-  
+  id                    String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name                  String            @db.VarChar(255)
+  slug                  String            @unique @db.VarChar(100)
+  phone_number          String?           @db.VarChar(20)
+  email                 String?           @db.VarChar(255)
+  address               String?
+  google_sheets_id      String?           @db.VarChar(255)
+  whatsapp_phone_number String?           @db.VarChar(20)
+  whatsapp_api_token    String?
+  timezone              String?           @default("UTC") @db.VarChar(50)
+  language              String?           @default("en") @db.VarChar(10)
+  subscription_tier     String?           @default("basic") @db.VarChar(50)
+  is_active             Boolean?          @default(true)
+  created_at            DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?         @default(now()) @db.Timestamptz(6)
+  appointments          Appointment[]
+  audit_logs            AuditLog[]
+  message_templates     MessageTemplate[]
+  patients              Patient[]
+  providers             Provider[]
+  system_config         SystemConfig[]
+  users                 User[]
+  whatsapp_messages     WhatsAppMessage[]
+
+  @@index([slug], map: "idx_organizations_slug")
   @@map("organizations")
 }
 
-enum SubscriptionPlan {
-  FREE
-  BASIC
-  PROFESSIONAL
-  ENTERPRISE
-}
-
-enum SubscriptionStatus {
-  TRIAL
-  ACTIVE
-  PAST_DUE
-  CANCELLED
-  SUSPENDED
-}
-
-enum OrganizationType {
-  CLINIC        // Multi-doctor healthcare facility
-  DOCTOR        // Individual doctor practice
-  HOSPITAL      // Large healthcare institution
-  SPECIALIST    // Specialist doctor practice
-  PHARMACY      // Pharmacy/dispensary
-  DIAGNOSTIC    // Diagnostic center/lab
-}
-
-// User accounts for healthcare providers and staff
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String   // Hashed with bcrypt
-  firstName     String
-  lastName      String
-  phone         String?
-  avatar        String?  // URL to profile picture
-  
-  // Role and permissions
-  role          UserRole @default(STAFF)
-  permissions   Json?    // Custom permissions override
-  
-  // Account status
-  isActive      Boolean  @default(true)
-  emailVerified Boolean  @default(false)
-  lastLoginAt   DateTime?
-  
-  // Multi-factor authentication
-  mfaEnabled    Boolean  @default(false)
-  mfaSecret     String?  // TOTP secret
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // User can be linked to provider profile
-  providerId     String?  @unique
-  provider       Provider? @relation(fields: [providerId], references: [id])
-  
-  auditLogs      AuditLog[]
-  sessions       Session[]
-  invitationsSent StaffInvitation[] @relation("InvitationsSent")
-  
+  id              String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String       @db.Uuid
+  email           String       @unique @db.VarChar(255)
+  password_hash   String       @db.VarChar(255)
+  first_name      String       @db.VarChar(100)
+  last_name       String       @db.VarChar(100)
+  phone_number    String?      @db.VarChar(20)
+  role            user_role    @default(staff)
+  specialization  String?      @db.VarChar(255)
+  license_number  String?      @db.VarChar(100)
+  is_active       Boolean?     @default(true)
+  last_login_at   DateTime?    @db.Timestamptz(6)
+  created_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  audit_logs      AuditLog[]
+  providers       Provider[]
+  organizations   Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([email], map: "idx_users_email")
+  @@index([organization_id], map: "idx_users_organization_id")
   @@map("users")
 }
 
-enum UserRole {
-  SUPER_ADMIN    // DrSync system administrator
-  ORG_ADMIN      // Organization administrator  
-  ADMIN          // Organization administrator (alias for compatibility)
-  DOCTOR         // Healthcare provider
-  NURSE          // Nursing staff
-  STAFF          // Administrative staff
-  RECEPTIONIST   // Front desk staff
-}
-
-// Staff invitation management for multi-tenant organizations
-model StaffInvitation {
-  id          String   @id @default(cuid())
-  email       String
-  firstName   String   // Invitee's first name (pre-filled, editable)
-  lastName    String   // Invitee's last name (pre-filled, editable)
-  role        UserRole
-  permissions String[] // Array of permission strings
-  status      InvitationStatus @default(PENDING)
-  token       String?  // JWT invitation token
-  expiresAt   DateTime
-  acceptedAt  DateTime?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  invitedBy      String
-  invitedByUser  User @relation("InvitationsSent", fields: [invitedBy], references: [id])
-  
-  // Note: No unique constraint to allow multiple invitations per email (with different statuses)
-  // Validation in code prevents multiple PENDING invitations per email per org
-  @@index([email, organizationId, status]) // Index for efficient lookups
-  @@index([status, expiresAt]) // For cleanup of expired invitations
-  @@map("staff_invitations")
-}
-
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  EXPIRED
-  CANCELLED
-}
-
-// ============================================================================
-// HEALTHCARE PROVIDERS
-// ============================================================================
-
 model Provider {
-  id              String   @id @default(cuid())
-  
-  // Basic information
-  firstName       String
-  lastName        String
-  title           String?  // Dr., Prof., etc.
-  specialization  String   // e.g., "Cardiology", "General Medicine"
-  licenseNumber   String?  // Medical license number
-  
-  // Contact information
-  email           String?
-  phone           String?
-  
-  // Professional information
-  experience      Int?     // Years of experience
-  qualifications  String[] // Array of qualifications
-  biography       String?  // Professional bio
-  
-  // Scheduling settings
-  isActive        Boolean  @default(true)
-  consultationDuration Int @default(30) // Default duration in minutes
-  consultationFee      Decimal? @db.Decimal(10, 2)
-  currency             String @default("PKR")
-  
-  // Working hours (JSON structure for flexibility)
-  workingHours    Json?    // { "monday": ["09:00-17:00"], "tuesday": ["09:00-12:00", "14:00-17:00"] }
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  user           User?        // Optional linked user account
-  appointments   Appointment[]
-  
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id  String           @db.Uuid
+  user_id          String?          @db.Uuid
+  name             String           @db.VarChar(255)
+  specialization   String?          @db.VarChar(255)
+  qualification    String?          @db.VarChar(500)
+  experience_years Int?
+  consultation_fee Decimal?         @db.Decimal(10, 2)
+  phone_number     String?          @db.VarChar(20)
+  email            String?          @db.VarChar(255)
+  working_hours    Json?
+  is_available     Boolean?         @default(true)
+  status           provider_status? @default(active)
+  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  appointments     Appointment[]
+  organizations    Organization     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            User?            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([organization_id], map: "idx_providers_organization_id")
   @@map("providers")
 }
 
-// ============================================================================
-// PATIENT MANAGEMENT
-// ============================================================================
-
 model Patient {
-  id            String   @id @default(cuid())
-  
-  // Personal information
-  firstName     String
-  lastName      String
-  email         String?
-  phone         String   // Primary identifier for WhatsApp
-  dateOfBirth   DateTime?
-  gender        Gender?
-  
-  // Address information
-  address       String?
-  city          String?
-  state         String?
-  postalCode    String?
-  country       String   @default("Pakistan")
-  
-  // Medical information
-  bloodGroup    BloodGroup?
-  allergies     String?  // Free text for allergies
-  medicalHistory String? // Brief medical history
-  emergencyContact String? // Emergency contact information
-  
-  // WhatsApp integration - for families sharing same WhatsApp number
-  whatsappNumber String? // Formatted WhatsApp number (can be same for family members)
-  primaryContact Boolean @default(true) // Is this the primary contact for this phone number
-  relationToPrimaryContact String? // "self", "child", "spouse", "parent", etc.
-  preferredLanguage String @default("en") // en, ur
-  
-  // System information
-  isActive      Boolean  @default(true)
-  registrationSource RegistrationSource @default(WHATSAPP)
-  
-  // Google Sheets sync
-  googleSheetsRowId String? // Row ID in Google Sheets for sync
-  lastSyncedAt      DateTime?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  appointments   Appointment[]
-  messages       WhatsAppMessage[]
-  notificationOverrides PatientNotificationOverride[]
-  
-  // No unique constraint on phone - allows multiple patients per phone number
-  // This supports families using same WhatsApp number for multiple patients
+  id                      String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id         String            @db.Uuid
+  external_id             String?           @db.VarChar(255)
+  first_name              String            @db.VarChar(100)
+  last_name               String            @db.VarChar(100)
+  phone_number            String            @db.VarChar(20)
+  email                   String?           @db.VarChar(255)
+  date_of_birth           DateTime?         @db.Date
+  gender                  String?           @db.VarChar(10)
+  address                 String?
+  medical_history         String?
+  emergency_contact_name  String?           @db.VarChar(255)
+  emergency_contact_phone String?           @db.VarChar(20)
+  language                String?           @default("en") @db.VarChar(10)
+  whatsapp_opted_in       Boolean?          @default(true)
+  last_synced_at          DateTime?         @db.Timestamptz(6)
+  created_at              DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?         @default(now()) @db.Timestamptz(6)
+  appointments            Appointment[]
+  organizations           Organization      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  whatsapp_messages       WhatsAppMessage[]
+
+  @@unique([organization_id, phone_number])
+  @@index([organization_id], map: "idx_patients_organization_id")
+  @@index([organization_id, phone_number], map: "idx_patients_phone")
   @@map("patients")
 }
 
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-  PREFER_NOT_TO_SAY
-}
-
-enum BloodGroup {
-  A_POSITIVE
-  A_NEGATIVE
-  B_POSITIVE
-  B_NEGATIVE
-  AB_POSITIVE
-  AB_NEGATIVE
-  O_POSITIVE
-  O_NEGATIVE
-}
-
-enum RegistrationSource {
-  WHATSAPP
-  DASHBOARD
-  GOOGLE_SHEETS
-  API
-}
-
-// ============================================================================
-// APPOINTMENT MANAGEMENT
-// ============================================================================
-
 model Appointment {
-  id              String   @id @default(cuid())
-  
-  // Appointment details
-  title           String?  // Optional appointment title
-  description     String?  // Appointment notes/reason
-  
-  // Scheduling
-  scheduledAt     DateTime
-  duration        Int      @default(30) // Duration in minutes
-  endTime         DateTime // Calculated field: scheduledAt + duration
-  
-  // Status management
-  status          AppointmentStatus @default(SCHEDULED)
-  priority        AppointmentPriority @default(NORMAL)
-  
-  // Booking information
-  bookingSource   BookingSource @default(WHATSAPP)
-  bookedAt        DateTime @default(now())
-  
-  // Follow-up and reminders
-  reminderSent    Boolean  @default(false)
-  reminderSentAt  DateTime?
-  followUpSent    Boolean  @default(false)
-  followUpSentAt  DateTime?
-  
-  // Consultation details (filled after appointment)
-  actualStartTime DateTime?
-  actualEndTime   DateTime?
-  consultationNotes String?
-  prescriptions   String?
-  nextAppointmentDate DateTime?
-  
-  // Conflict resolution and atomic operations
-  lockToken         String?  // UUID for atomic booking operations
-  lockedAt          DateTime? // When slot was locked for booking
-  lockedBy          String?  // Source of lock ("WHATSAPP", "DASHBOARD", etc.)
-  
-  // Google Sheets sync
-  googleSheetsRowId String? // Row ID in Google Sheets for sync
-  lastSyncedAt      DateTime?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  patientId      String
-  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  providerId     String
-  provider       Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  
-  messages       WhatsAppMessage[]
-  reminders      AppointmentReminder[]
-  
-  @@index([scheduledAt, providerId]) // For efficient appointment queries
-  @@index([patientId, scheduledAt])  // For patient appointment history
+  id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id      String              @db.Uuid
+  external_id          String?             @db.VarChar(255)
+  patient_id           String              @db.Uuid
+  provider_id          String              @db.Uuid
+  appointment_date     DateTime            @db.Date
+  appointment_time     DateTime            @db.Time(6)
+  duration_minutes     Int?                @default(30)
+  status               appointment_status? @default(scheduled)
+  reason_for_visit     String?
+  notes                String?
+  consultation_fee     Decimal?            @db.Decimal(10, 2)
+  whatsapp_message_id  String?             @db.VarChar(255)
+  reminder_sent        Boolean?            @default(false)
+  reminder_sent_at     DateTime?           @db.Timestamptz(6)
+  confirmation_sent    Boolean?            @default(false)
+  confirmation_sent_at DateTime?           @db.Timestamptz(6)
+  follow_up_sent       Boolean?            @default(false)
+  follow_up_sent_at    DateTime?           @db.Timestamptz(6)
+  last_synced_at       DateTime?           @db.Timestamptz(6)
+  created_at           DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?           @default(now()) @db.Timestamptz(6)
+  organizations        Organization        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  patients             Patient             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  providers            Provider            @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  whatsapp_messages    WhatsAppMessage[]
+
+  @@unique([organization_id, external_id])
+  @@index([organization_id, appointment_date], map: "idx_appointments_date")
+  @@index([organization_id], map: "idx_appointments_organization_id")
+  @@index([patient_id], map: "idx_appointments_patient")
+  @@index([provider_id], map: "idx_appointments_provider")
   @@map("appointments")
 }
 
-enum AppointmentStatus {
-  SCHEDULED     // Initial booking
-  CONFIRMED     // Patient confirmed attendance
-  IN_PROGRESS   // Consultation ongoing
-  COMPLETED     // Consultation finished
-  CANCELLED     // Cancelled by patient or provider
-  NO_SHOW       // Patient didn't show up
-  RESCHEDULED   // Moved to different time
-}
-
-enum AppointmentPriority {
-  LOW
-  NORMAL
-  HIGH
-  EMERGENCY
-}
-
-enum BookingSource {
-  WHATSAPP
-  DASHBOARD
-  PHONE
-  WALK_IN
-  GOOGLE_SHEETS
-}
-
-// Appointment reminder tracking
-// Required by TASK-042 (Automated Reminders)
-model AppointmentReminder {
-  id                String   @id @default(cuid())
-  
-  // Reminder details
-  reminderType      ReminderType // Type of reminder
-  scheduledFor      DateTime     // When reminder should be sent
-  sentAt            DateTime?    // When reminder was actually sent
-  
-  // TASK-040A: Manual reminder support
-  trigger           ReminderTrigger @default(AUTOMATIC) // Automatic or manual
-  sentBy            String?      // User ID who sent (for MANUAL triggers)
-  
-  // Status tracking
-  status            ReminderStatus @default(PENDING)
-  
-  // Message tracking
-  messageId         String?      // WhatsApp message ID if sent
-  skipReason        String?      // Reason if skipped (e.g., "notification_disabled", "patient_opted_out")
-  
-  // Retry tracking
-  attempts          Int       @default(0)  // Number of send attempts
-  lastAttemptAt     DateTime?    // Last attempt timestamp
-  errorMessage      String?      // Error details if failed
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  appointmentId  String
-  appointment    Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  
-  // Indexes for efficient queries
-  @@index([organizationId, scheduledFor]) // For finding reminders to send
-  @@index([status, scheduledFor])         // For processing pending reminders
-  @@index([appointmentId, reminderType])  // For checking if reminder already exists
-  @@index([trigger])                      // For filtering manual vs automatic
-  @@map("appointment_reminders")
-}
-
-enum ReminderType {
-  REMINDER_24H       // 24 hours before appointment
-  REMINDER_2H        // 2 hours before appointment
-  REMINDER_30MIN     // 30 minutes before appointment
-  FOLLOWUP_SAME_DAY  // Follow-up on same day after appointment
-  FOLLOWUP_NEXT_DAY  // Follow-up next day after appointment
-  NO_SHOW_FOLLOWUP   // Follow-up when patient doesn't show
-}
-
-enum ReminderStatus {
-  PENDING     // Reminder scheduled but not sent
-  SENT        // Reminder successfully sent
-  FAILED      // Failed to send after retries
-  SKIPPED     // Skipped due to settings or patient preference
-  CANCELLED   // Cancelled (e.g., appointment cancelled)
-}
-
-enum ReminderTrigger {
-  AUTOMATIC   // Sent automatically by scheduler
-  MANUAL      // Sent manually by staff
-}
-
-// ============================================================================
-// NOTIFICATION SETTINGS & PREFERENCES (TASK-040A)
-// ============================================================================
-
-// Organization-level notification preferences
-model NotificationSettings {
-  id             String   @id @default(cuid())
-  organizationId String   @unique
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Language preference (inherited from Organization, but can override)
-  language       String   @default("en") // "en" | "ur"
-  
-  // Enabled notification types (Phase 1)
-  bookingConfirmationsEnabled Boolean @default(true)
-  remindersEnabled            Boolean @default(true)
-  followUpsEnabled            Boolean @default(false)
-  medicationRemindersEnabled  Boolean @default(false)
-  wellnessChecksEnabled       Boolean @default(false)
-  
-  // Additional notification types (Phase 2)
-  preAppointmentInstructionsEnabled Boolean @default(false)
-  arrivalNotificationEnabled        Boolean @default(false)
-  appointmentCompletionEnabled      Boolean @default(false)
-  reschedulingConfirmationEnabled   Boolean @default(true)
-  cancellationConfirmationEnabled   Boolean @default(true)
-  noShowFollowupEnabled             Boolean @default(false)
-  paymentReminderEnabled            Boolean @default(false)
-  
-  // Reminder timing
-  reminderTiming ReminderTiming @default(HOURS_24)
-  customReminderMinutes Int?  // Only if reminderTiming = CUSTOM
-  
-  // Channels (future: EMAIL, SMS support)
-  enabledChannels String[] @default(["WHATSAPP"])
-  
-  // Quiet hours (no notifications sent during this period)
-  quietHoursEnabled Boolean @default(false)
-  quietHoursStart   String? // HH:MM format (e.g., "22:00")
-  quietHoursEnd     String? // HH:MM format (e.g., "08:00")
-  
-  // Cost controls
-  monthlyCap        Decimal? @db.Decimal(10, 2) // Maximum monthly spending
-  currentMonthSpend Decimal @default(0) @db.Decimal(10, 2)
-  alertThreshold    Int @default(80) // Percentage (80% of cap)
-  
-  // Phase 2: Advanced features
-  presetMode              PresetMode @default(RECOMMENDED)
-  patientSegmentationEnabled Boolean @default(false)
-  smartBundlingEnabled    Boolean @default(false)
-  costPerMessage          Decimal @default(3.50) @db.Decimal(10, 2) // PKR per message
-  
-  // Monthly appointment average (for cost calculations)
-  averageMonthlyAppointments Int @default(0)
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([organizationId])
-  @@map("notification_settings")
-}
-
-enum PresetMode {
-  BUDGET       // Reminders only - minimal cost
-  RECOMMENDED  // Essential messages - balanced
-  PREMIUM      // All messages - maximum engagement
-  CUSTOM       // User-configured settings
-}
-
-// Message cost tracking for analytics (Phase 2)
-model MessageCostTracking {
-  id             String   @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Tracking period
-  periodYear     Int      // e.g., 2025
-  periodMonth    Int      // 1-12
-  
-  // Message counts by type
-  bookingConfirmationsSent      Int @default(0)
-  remindersSent                 Int @default(0)
-  followUpsSent                 Int @default(0)
-  medicationRemindersSent       Int @default(0)
-  wellnessChecksSent            Int @default(0)
-  preInstructionsSent           Int @default(0)
-  arrivalNotificationsSent      Int @default(0)
-  completionMessagesSent        Int @default(0)
-  reschedulingConfirmationsSent Int @default(0)
-  cancellationConfirmationsSent Int @default(0)
-  noShowFollowupsSent           Int @default(0)
-  paymentRemindersSent          Int @default(0)
-  
-  // Totals
-  totalMessagesSent             Int @default(0)
-  messagesSavedBySettings       Int @default(0) // Messages not sent due to settings
-  messagesBundled               Int @default(0) // Messages combined via smart bundling
-  
-  // Cost tracking
-  estimatedCost     Decimal @default(0) @db.Decimal(10, 2)
-  actualCost        Decimal? @db.Decimal(10, 2) // If available from WhatsApp API
-  costSaved         Decimal @default(0) @db.Decimal(10, 2) // Cost saved by disabled messages
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@unique([organizationId, periodYear, periodMonth])
-  @@index([organizationId, periodYear, periodMonth])
-  @@map("message_cost_tracking")
-}
-
-// Patient-specific notification overrides (Phase 2)
-model PatientNotificationOverride {
-  id        String   @id @default(cuid())
-  patientId String
-  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  // Patient segmentation
-  patientSegment PatientSegment @default(REGULAR)
-  
-  // Override specific notification types for this patient
-  bookingConfirmationsEnabled Boolean?
-  remindersEnabled            Boolean?
-  followUpsEnabled            Boolean?
-  medicationRemindersEnabled  Boolean?
-  wellnessChecksEnabled       Boolean?
-  
-  // Custom quiet hours for this patient
-  quietHoursEnabled Boolean @default(false)
-  quietHoursStart   String? // HH:MM format
-  quietHoursEnd     String? // HH:MM format
-  
-  // Preferred language override
-  language          String? // "en" | "ur"
-  
-  // Communication preferences
-  preferredChannel  String? // "WHATSAPP" | "SMS" | "EMAIL"
-  doNotContact      Boolean @default(false) // Patient opted out
-  
-  // Timestamps
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@unique([patientId, organizationId])
-  @@index([organizationId, patientSegment])
-  @@index([patientId])
-  @@map("patient_notification_overrides")
-}
-
-enum PatientSegment {
-  NEW          // First-time patient (0-1 appointments)
-  REGULAR      // Regular patient (2-10 appointments)
-  VIP          // VIP patient (10+ appointments or flagged by staff)
-  AT_RISK      // Patient who missed appointments
-  INACTIVE     // Patient who hasn't visited in 6+ months
-}
-
-enum ReminderTiming {
-  IMMEDIATELY      // 0 minutes
-  MINUTES_30       // 30 minutes
-  HOURS_1          // 1 hour
-  HOURS_2          // 2 hours
-  HOURS_4          // 4 hours
-  HOURS_24         // 24 hours (default)
-  HOURS_48         // 48 hours
-  HOURS_72         // 72 hours
-  CUSTOM           // Custom timing (use customReminderMinutes)
-}
-
-// ============================================================================
-// WHATSAPP MESSAGING SYSTEM
-// ============================================================================
-
 model WhatsAppMessage {
-  id              String   @id @default(cuid())
-  
-  // Message identifiers
-  whatsappMessageId String? @unique // WhatsApp's message ID
-  threadId        String?  // For grouping related messages
-  
-  // Message content
-  messageType     MessageType @default(TEXT)
-  content         String   // Message text or media URL
-  language        String   @default("en")
-  
-  // Message direction and status
-  direction       MessageDirection
-  status          MessageStatus @default(PENDING)
-  
-  // Delivery tracking
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  readAt          DateTime?
-  failedAt        DateTime?
-  errorMessage    String?  // Error details if failed
-  
-  // Context information
-  intent          MessageIntent? // What the user is trying to do
-  sessionId       String?  // For tracking conversation sessions
-  
-  // Template information (for outbound messages)
-  templateName    String?  // WhatsApp template name
-  templateParams  Json?    // Template parameter values
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  patientId      String?
-  patient        Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  appointmentId  String?
-  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
-  
-  @@index([patientId, createdAt]) // For conversation history
-  @@index([organizationId, direction, createdAt]) // For organization messaging stats
+  id                  String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id     String       @db.Uuid
+  patient_id          String?      @db.Uuid
+  appointment_id      String?      @db.Uuid
+  whatsapp_message_id String?      @db.VarChar(255)
+  phone_number        String       @db.VarChar(20)
+  message_type        message_type
+  message_content     String
+  template_name       String?      @db.VarChar(255)
+  is_incoming         Boolean?     @default(false)
+  delivery_status     String?      @default("pending") @db.VarChar(50)
+  delivered_at        DateTime?    @db.Timestamptz(6)
+  read_at             DateTime?    @db.Timestamptz(6)
+  error_message       String?
+  created_at          DateTime?    @default(now()) @db.Timestamptz(6)
+  appointments        Appointment? @relation(fields: [appointment_id], references: [id], onUpdate: NoAction)
+  organizations       Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  patients            Patient?     @relation(fields: [patient_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_whatsapp_messages_created_at")
+  @@index([organization_id], map: "idx_whatsapp_messages_organization_id")
+  @@index([phone_number], map: "idx_whatsapp_messages_phone")
   @@map("whatsapp_messages")
 }
 
-enum MessageType {
-  TEXT
-  IMAGE
-  DOCUMENT
-  AUDIO
-  VIDEO
-  LOCATION
-  CONTACT
-  TEMPLATE
-  INTERACTIVE
-}
-
-enum MessageDirection {
-  INBOUND   // From patient to system
-  OUTBOUND  // From system to patient
-}
-
-enum MessageStatus {
-  PENDING   // Queued for sending
-  SENT      // Sent to WhatsApp API
-  DELIVERED // Delivered to recipient
-  READ      // Read by recipient
-  FAILED    // Failed to send
-}
-
-enum MessageIntent {
-  GREETING
-  BOOK_APPOINTMENT
-  RESCHEDULE_APPOINTMENT
-  CANCEL_APPOINTMENT
-  CHECK_APPOINTMENT
-  GET_CLINIC_INFO
-  GET_DOCTOR_INFO
-  EMERGENCY
-  FEEDBACK
-  OTHER
-}
-
-// Message templates for automated responses
 model MessageTemplate {
-  id            String   @id @default(cuid())
-  name          String   // Template identifier
-  category      TemplateCategory
-  language      String   // Template language (en, ur)
-  
-  // Template content
-  subject       String?  // For structured templates
-  content       String   // Template text with placeholders
-  mediaUrl      String?  // Optional media attachment
-  
-  // WhatsApp Business API template info
-  whatsappTemplateId String? // WhatsApp's template ID
-  templateStatus     TemplateStatus @default(DRAFT)
-  
-  // Usage tracking
-  isActive      Boolean  @default(true)
-  usageCount    Int      @default(0)
-  lastUsedAt    DateTime?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  @@unique([organizationId, name, language]) // Unique template per org per language
+  id              String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String       @db.Uuid
+  name            String       @db.VarChar(255)
+  type            message_type
+  language        String?      @default("en") @db.VarChar(10)
+  subject         String?      @db.VarChar(255)
+  content         String
+  variables       Json?
+  is_active       Boolean?     @default(true)
+  created_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  organizations   Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, name, language])
   @@map("message_templates")
 }
 
-enum TemplateCategory {
-  WELCOME
-  APPOINTMENT_CONFIRMATION
-  APPOINTMENT_REMINDER
-  APPOINTMENT_CANCELLATION
-  FOLLOW_UP
-  MEDICATION_REMINDER
-  WELLNESS_CHECK
-  CLINIC_INFO
-  EMERGENCY_RESPONSE
-  FEEDBACK_REQUEST
-  CUSTOM
-}
-
-enum TemplateStatus {
-  DRAFT
-  PENDING_APPROVAL
-  APPROVED
-  REJECTED
-  DISABLED
-}
-
-// ============================================================================
-// AUDIT AND LOGGING
-// ============================================================================
-
-// Comprehensive audit trail for all system activities
 model AuditLog {
-  id            String   @id @default(cuid())
-  
-  // Action details
-  action        String   // CREATE, UPDATE, DELETE, LOGIN, etc.
-  entityType    String   // Patient, Appointment, User, etc.
-  entityId      String?  // ID of affected entity
-  
-  // Change tracking
-  oldValues     Json?    // Previous values (for updates)
-  newValues     Json?    // New values
-  
-  // Context information
-  ipAddress     String?
-  userAgent     String?
-  source        String?  // WHATSAPP, DASHBOARD, API, etc.
-  
-  // Metadata
-  metadata      Json?    // Additional context information
-  
-  createdAt DateTime @default(now())
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  userId         String?  // User who performed the action
-  user           User?    @relation(fields: [userId], references: [id])
-  
-  @@index([organizationId, entityType, createdAt]) // For efficient audit queries
-  @@index([userId, createdAt]) // For user activity tracking
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String?       @db.Uuid
+  user_id         String?       @db.Uuid
+  table_name      String        @db.VarChar(255)
+  record_id       String?       @db.Uuid
+  action          String        @db.VarChar(50)
+  old_values      Json?
+  new_values      Json?
+  timestamp       DateTime?     @default(now()) @db.Timestamptz(6)
+  ip_address      String?       @db.Inet
+  user_agent      String?
+  organizations   Organization? @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users           User?         @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([organization_id], map: "idx_audit_logs_organization_id")
+  @@index([timestamp], map: "idx_audit_logs_timestamp")
   @@map("audit_logs")
 }
 
-// ============================================================================
-// SYSTEM CONFIGURATION
-// ============================================================================
-
-// System-wide configuration settings
 model SystemConfig {
-  id            String   @id @default(cuid())
-  key           String   @unique // Configuration key
-  value         String   // Configuration value
-  description   String?  // Human-readable description
-  category      String   @default("general") // Grouping category
-  isEncrypted   Boolean  @default(false) // Whether value is encrypted
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  organization_id String?       @db.Uuid
+  config_key      String        @db.VarChar(255)
+  config_value    String?
+  config_type     String?       @default("string") @db.VarChar(50)
+  description     String?
+  is_encrypted    Boolean?      @default(false)
+  created_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  organizations   Organization? @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([organization_id, config_key])
   @@map("system_config")
 }
 
-// Trial abuse prevention tracking
-model TrialHistory {
-  id                String   @id @default(cuid())
-  phoneNumber       String   // Primary identifier
-  email             String   // Secondary identifier
-  organizationName  String   // Clinic/organization name
-  phoneVerified     Boolean  @default(false) // SMS/WhatsApp verification status
-  ipAddress         String?  // Registration IP
-  userAgent         String?  // Browser fingerprint
-  
-  createdAt DateTime @default(now())
-  
-  @@unique([phoneNumber]) // One trial per phone number
-  @@index([email])
-  @@index([organizationName])
-  @@map("trial_history")
+enum appointment_status {
+  scheduled
+  confirmed
+  completed
+  cancelled
+  no_show
 }
 
-// User session management
-model Session {
-  id        String   @id // Session token
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@map("sessions")
+enum message_type {
+  appointment_confirmation
+  reminder
+  follow_up
+  custom
 }
 
-// System metrics and monitoring
-model SystemMetric {
-  id             String   @id @default(cuid())
-  timestamp      DateTime @default(now())
-  organizationId String
-  metric         String   // Metric name
-  value          Float    // Metric value
-  unit           String   // Metric unit (ms, count, bytes, etc.)
-  tags           Json?    // Additional metric tags
-  
-  createdAt DateTime @default(now())
-  
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  @@index([organizationId, metric, timestamp])
-  @@map("system_metrics")
+enum provider_status {
+  active
+  inactive
+  on_leave
 }
 
-// Billing records (compatible with systemOperationsService)
-model BillingRecord {
-  id                String   @id @default(cuid())
-  organizationId    String
-  subscriptionTier  String   // BASIC, PROFESSIONAL, ENTERPRISE
-  billingCycle      String   // MONTHLY, YEARLY
-  amount            Decimal  @db.Decimal(10, 2)
-  currency          String   // USD, PKR
-  status            String   // PENDING, PAID, FAILED, REFUNDED
-  periodStart       DateTime
-  periodEnd         DateTime
-  dueDate           DateTime
-  paidAt            DateTime?
-  createdAt         DateTime @default(now())
-  
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  @@index([organizationId, status])
-  @@map("billing_records")
-}
-
-// Payment intents for tracking payment processing
-model PaymentIntent {
-  id               String   @id @default(cuid())
-  organizationId   String
-  amount           Decimal  @db.Decimal(10, 2)
-  currency         String   // "PKR" or "USD"
-  paymentMethod    String   // "JAZZCASH", "EASYPAISA", "PAYONEER", "WISE", "USDT"
-  status           String   // "PENDING", "PROCESSING", "SUCCESS", "FAILED", "CANCELLED"
-  
-  // External payment gateway details
-  gatewayIntentId  String?  // Payment gateway's intent/transaction ID
-  gatewayResponse  Json?    // Full gateway response for debugging
-  failureReason    String?  // Reason for payment failure
-  
-  // Billing details
-  billingPeriod    String   // "2025-09" for monthly, "2025" for yearly
-  subscriptionType String   // "MONTHLY" or "YEARLY"
-  doctorCount      Int      // Number of doctors being billed for
-  
-  // Retry logic
-  retryCount       Int      @default(0)
-  nextRetryAt      DateTime?
-  maxRetries       Int      @default(3)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  @@index([organizationId, status])
-  @@index([status, nextRetryAt])
-  @@map("payment_intents")
-}
-
-// Subscription billing history
-model BillingHistory {
-  id              String   @id @default(cuid())
-  organizationId  String
-  amount          Decimal  @db.Decimal(10, 2)
-  currency        String   // "PKR" or "USD"
-  paymentMethod   String   // "JAZZCASH", "PAYONEER", etc.
-  paymentStatus   String   // "SUCCESS", "FAILED", "PENDING"
-  transactionId   String?  // External payment gateway transaction ID
-  billingPeriod   String   // "2025-09" for monthly, "2025" for yearly
-  doctorCount     Int      // Number of doctors billed for
-  
-  // Link to payment intent
-  paymentIntentId String?
-  
-  createdAt DateTime @default(now())
-  
-  // Relations
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  @@index([organizationId, billingPeriod])
-  @@index([paymentIntentId])
-  @@map("billing_history")
-}
-
-// ============================================================================
-// SUPPORT & TICKETING SYSTEM (TASK-038D)
-// ============================================================================
-
-// Support ticket management
-model SupportTicket {
-  id             String   @id @default(cuid())
-  ticketNumber   String   @unique // Human-readable ticket number (e.g., "TICKET-2024-001")
-  
-  // Ticket details
-  subject        String
-  description    String   @db.Text
-  status         TicketStatus @default(OPEN)
-  priority       TicketPriority @default(MEDIUM)
-  category       TicketCategory
-  
-  // Assignment
-  assignedTo     String?  // Super admin user ID
-  assignedAt     DateTime?
-  
-  // Resolution
-  resolvedAt     DateTime?
-  closedAt       DateTime?
-  resolutionNotes String?  @db.Text
-  
-  // Metadata
-  tags           String[] // Searchable tags
-  attachments    Json?    // Array of attachment URLs/metadata
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  createdBy      String   // User ID who created the ticket
-  responses      TicketResponse[]
-  
-  @@index([organizationId, status])
-  @@index([status, priority])
-  @@index([assignedTo, status])
-  @@index([category, status])
-  @@map("support_tickets")
-}
-
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  WAITING_CUSTOMER
-  RESOLVED
-  CLOSED
-}
-
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum TicketCategory {
-  BILLING
-  TECHNICAL
-  FEATURE_REQUEST
-  BUG
-  ACCOUNT
-  SETUP
-  INTEGRATION
-  OTHER
-}
-
-// Ticket responses and communications
-model TicketResponse {
-  id         String   @id @default(cuid())
-  ticketId   String
-  message    String   @db.Text
-  isInternal Boolean  @default(false) // Internal notes not visible to customer
-  
-  // Attachments
-  attachments Json?   // Array of attachment URLs/metadata
-  
-  // Status change tracking
-  statusChange TicketStatus?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Relations
-  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  
-  responderId String  // User ID of responder (super admin or org user)
-  
-  @@index([ticketId, createdAt])
-  @@map("ticket_responses")
-}
-
-// Knowledge base articles
-model KnowledgeBaseArticle {
-  id          String   @id @default(cuid())
-  title       String
-  slug        String   @unique // URL-friendly identifier
-  content     String   @db.Text // Markdown or HTML content
-  excerpt     String?  // Short summary
-  
-  // Categorization
-  category    KBCategory
-  tags        String[] // Searchable tags
-  
-  // Publishing
-  status      ArticleStatus @default(DRAFT)
-  publishedAt DateTime?
-  
-  // Analytics
-  viewCount   Int      @default(0)
-  helpfulCount Int     @default(0)
-  notHelpfulCount Int  @default(0)
-  
-  // SEO
-  metaTitle       String?
-  metaDescription String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Author tracking
-  authorId  String   // Super admin who created/last updated
-  
-  @@index([status, category])
-  @@index([publishedAt])
-  @@map("knowledge_base_articles")
-}
-
-enum KBCategory {
-  GETTING_STARTED
-  SETUP
-  BILLING
-  FEATURES
-  INTEGRATIONS
-  TROUBLESHOOTING
-  BEST_PRACTICES
-  FAQ
-}
-
-enum ArticleStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
-// Communication logs for broadcasts and notifications
-model CommunicationLog {
-  id          String   @id @default(cuid())
-  type        CommunicationType
-  
-  // Content
-  subject     String?
-  message     String   @db.Text
-  channel     CommunicationChannel
-  
-  // Targeting
-  recipientType String  // "ALL", "FILTERED", "SPECIFIC"
-  recipientFilter Json? // Filter criteria if type is FILTERED
-  recipientIds String[] // Specific organization IDs if type is SPECIFIC
-  recipientCount Int    @default(0) // Number of recipients
-  
-  // Scheduling
-  scheduledFor DateTime?
-  sentAt       DateTime?
-  
-  // Status
-  status      CommunicationStatus @default(PENDING)
-  
-  // Analytics
-  deliveredCount Int @default(0)
-  openedCount    Int @default(0)
-  clickedCount   Int @default(0)
-  failedCount    Int @default(0)
-  
-  // Metadata
-  templateId  String?  // If using a template
-  metadata    Json?    // Additional data
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Creator
-  createdBy String   // Super admin user ID
-  
-  @@index([type, status])
-  @@index([scheduledFor, status])
-  @@index([createdBy])
-  @@map("communication_logs")
-}
-
-enum CommunicationType {
-  BROADCAST
-  ANNOUNCEMENT
-  NOTIFICATION
-  ALERT
-  MAINTENANCE
-}
-
-enum CommunicationChannel {
-  EMAIL
-  IN_APP
-  SMS
-  PUSH
-}
-
-enum CommunicationStatus {
-  PENDING
-  SCHEDULED
-  SENDING
-  SENT
-  FAILED
-  CANCELLED
-}
-
-// Email templates for support communications
-model EmailTemplate {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  subject     String
-  body        String   @db.Text // HTML or plain text with variables
-  category    EmailTemplateCategory
-  
-  // Variables
-  variables   String[] // Available variables (e.g., {{organizationName}}, {{userName}})
-  
-  // Status
-  isActive    Boolean  @default(true)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  // Creator
-  createdBy String   // Super admin user ID
-  
-  @@index([category, isActive])
-  @@map("email_templates")
-}
-
-enum EmailTemplateCategory {
-  SUPPORT
-  BILLING
-  ANNOUNCEMENT
-  ONBOARDING
-  MAINTENANCE
-  MARKETING
+enum user_role {
+  admin
+  provider
+  staff
 }

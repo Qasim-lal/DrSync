@@ -17,7 +17,7 @@
 
 import getPrismaClient from './prisma';
 import logger from '../utils/logger';
-import { Prisma } from '../generated/prisma';
+import { Prisma } from '@prisma/client';
 
 export enum MessageType {
   BOOKING_CONFIRMATION = 'booking_confirmation',

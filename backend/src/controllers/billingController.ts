@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { logger } from '../utils/logger';
 import PaymentService from '../services/paymentService';
 import SubscriptionService, { TRIAL_LIMITS } from '../services/subscriptionService';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

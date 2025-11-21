@@ -687,7 +687,7 @@ export const getProviderAnalytics = asyncHandler(async (req: Request, res: Respo
           activeProviders,
           inactiveProviders: totalProviders - activeProviders
         },
-        specializationDistribution: specializationStats.map(stat => ({
+        specializationDistribution: specializationStats.map((stat: any) => ({
           specialization: stat.specialization,
           count: stat._count.specialization
         })),

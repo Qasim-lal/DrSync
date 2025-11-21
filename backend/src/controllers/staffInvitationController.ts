@@ -6,7 +6,7 @@
 
 import { Request, Response } from 'express';
 import * as staffInvitationService from '../services/staffInvitationService';
-import { UserRole } from '../generated/prisma';
+import { UserRole } from '@prisma/client';
 import { emailService } from '../services/emailService';
 
 /**

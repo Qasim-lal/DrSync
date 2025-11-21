@@ -23,7 +23,7 @@
 
 import getPrismaClient from './prisma';
 import logger from '../utils/logger';
-import { NotificationSettings, ReminderTiming } from '../generated/prisma';
+import { NotificationSettings, ReminderTiming } from '@prisma/client';
 
 // Notification types that can be controlled
 export enum NotificationType {

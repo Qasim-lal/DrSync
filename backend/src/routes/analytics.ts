@@ -91,8 +91,8 @@ router.get('/patients', asyncHandler(async (req: Request, res: Response) => {
         },
         appointmentPatterns: {
           averageAppointmentsPerPatient: appointmentStats.length > 0 ? 
-            appointmentStats.reduce((sum, stat) => sum + stat._count.patientId, 0) / appointmentStats.length : 0,
-          mostActivePatients: appointmentStats.slice(0, 5).map((stat, index) => ({
+            appointmentStats.reduce((sum: any, stat: any) => sum + stat._count.patientId, 0) / appointmentStats.length : 0,
+          mostActivePatients: appointmentStats.slice(0, 5).map((stat: any, index: any) => ({
             patientId: stat.patientId,
             name: `Patient ${index + 1}`,
             appointmentCount: stat._count.patientId

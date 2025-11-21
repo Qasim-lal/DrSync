@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { z } from 'zod';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import googleSheetsService from '../services/googleSheetsService';
 

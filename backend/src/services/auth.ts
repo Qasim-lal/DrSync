@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import type { User } from '../generated/prisma';
+import type { User } from '@prisma/client';
 import { getPrismaClient } from './prisma';
 import { logger } from '../utils/logger';
 

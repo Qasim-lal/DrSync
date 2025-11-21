@@ -1,4 +1,4 @@
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 import googleSheetsService from './googleSheetsService';
 // import sheetsSyncService from './sheetsSyncService';

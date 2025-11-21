@@ -12,7 +12,7 @@
  * @version 1.0.0
  */
 
-import { PrismaClient, Organization, OrganizationType } from '../generated/prisma';
+import { PrismaClient, Organization, OrganizationType } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { AuthService, AuthUser } from './auth';
 import { SubscriptionService, TRIAL_LIMITS } from './subscriptionService';

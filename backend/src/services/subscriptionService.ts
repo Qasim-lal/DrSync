@@ -12,7 +12,7 @@
  * @version 1.0.0
  */
 
-import { PrismaClient, Organization, TrialHistory, SubscriptionStatus } from '../generated/prisma';
+import { PrismaClient, Organization, TrialHistory, SubscriptionStatus } from '@prisma/client';
 import { logger } from '../utils/logger';
 import PaymentService, { PRICING_CONFIG } from './paymentService';
 

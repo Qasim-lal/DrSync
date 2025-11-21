@@ -25,7 +25,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import axios, { AxiosError } from 'axios';
-import { Prisma } from '../generated/prisma';
+import { Prisma } from '@prisma/client';
 import logger from '../utils/logger';
 import getPrismaClient from './prisma';
 import googleSheetsService from './googleSheetsService';

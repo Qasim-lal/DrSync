@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { PrismaClient } from '../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 import { AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { AppointmentService } from '../services/appointmentService';

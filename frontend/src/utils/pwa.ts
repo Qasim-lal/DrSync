@@ -160,7 +160,7 @@ export async function subscribeToPushNotifications(
   try {
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource
     });
 
     console.log('[PWA] Push notification subscription successful');
@@ -428,8 +428,8 @@ function trackPWAEvent(event: string): void {
   console.log(`[PWA Analytics] ${event}`);
   
   // You can integrate with analytics services here
-  if (typeof gtag !== 'undefined') {
-    gtag('event', 'pwa_interaction', {
+  if (typeof window !== 'undefined' && 'gtag' in window) {
+    (window as any).gtag('event', 'pwa_interaction', {
       event_category: 'PWA',
       event_label: event
     });

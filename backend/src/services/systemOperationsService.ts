@@ -415,7 +415,7 @@ class SystemOperationsService {
       ]);
 
       return {
-        logs: logs.map(log => ({
+        logs: logs.map((log: any) => ({
           id: log.id,
           userId: log.userId ?? '',
           organizationId: log.organizationId,
@@ -493,7 +493,7 @@ class SystemOperationsService {
       ]);
 
       return {
-        records: records.map(record => ({
+        records: records.map((record: any) => ({
           ...record,
           amount: Number(record.amount) // Convert Decimal to number
         })) as BillingRecord[],
