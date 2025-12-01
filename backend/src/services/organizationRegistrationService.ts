@@ -147,7 +147,9 @@ export class OrganizationRegistrationService {
             isActive: true,
             // Combine address fields into single address string
             address: request.address ? 
-              `${request.address.street}, ${request.address.city}, ${request.address.state} ${request.address.postalCode}, ${request.address.country || 'Pakistan'}`.trim() : 
+              [request.address.street, request.address.city, request.address.state, request.address.postalCode, request.address.country || 'Pakistan']
+                .filter(part => part && part.trim())
+                .join(', ') : 
               null,
             // Trial and subscription defaults
             doctorCount: 1, // Initially 1 doctor (the admin)
