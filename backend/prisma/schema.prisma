@@ -261,3 +261,34 @@ enum UserRole {
 
   @@map("user_role")
 }
+
+model TrialHistory {
+  id               String    @id @default(cuid())
+  phoneNumber      String    @unique
+  email            String
+  organizationName String
+  phoneVerified    Boolean   @default(false)
+  ipAddress        String?
+  userAgent        String?
+  createdAt        DateTime  @default(now())
+
+  @@index([email])
+  @@index([organizationName])
+  @@map("trial_history")
+}
+
+model BillingHistory {
+  id              String   @id @default(cuid())
+  organizationId  String
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String
+  paymentMethod   String
+  paymentStatus   String
+  transactionId   String?
+  billingPeriod   String
+  doctorCount     Int
+  createdAt       DateTime @default(now())
+
+  @@index([organizationId, billingPeriod])
+  @@map("billing_history")
+}
