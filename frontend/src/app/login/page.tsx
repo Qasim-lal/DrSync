@@ -36,8 +36,12 @@ export default function LoginPage() {
       localStorage.setItem('refreshToken', data.data.tokens.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.data.user));
 
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Redirect based on user role
+      if (data.data.user.role === 'SUPER_ADMIN') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
