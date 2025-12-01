@@ -1,0 +1,21 @@
+-- CreateEnum
+DO $$ BEGIN
+    CREATE TYPE "OrganizationType" AS ENUM ('CLINIC', 'DOCTOR', 'HOSPITAL', 'SPECIALIST', 'PHARMACY', 'DIAGNOSTIC');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- AlterTable
+ALTER TABLE "organizations" 
+ADD COLUMN IF NOT EXISTS "organizationType" "OrganizationType" DEFAULT 'CLINIC',
+ADD COLUMN IF NOT EXISTS "subscriptionEndsAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "maxPatients" INTEGER,
+ADD COLUMN IF NOT EXISTS "maxAppointments" INTEGER,
+ADD COLUMN IF NOT EXISTS "subscriptionType" TEXT,
+ADD COLUMN IF NOT EXISTS "lastBilledAt" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "nextBillingDate" TIMESTAMP(3),
+ADD COLUMN IF NOT EXISTS "paymentMethod" TEXT,
+ADD COLUMN IF NOT EXISTS "region" TEXT DEFAULT 'PAKISTAN',
+ADD COLUMN IF NOT EXISTS "whatsappWebhookUrl" TEXT,
+ADD COLUMN IF NOT EXISTS "googleSheetsStructure" TEXT DEFAULT 'TABS',
+ADD COLUMN IF NOT EXISTS "whatsappBusinessId" TEXT;

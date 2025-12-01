@@ -163,13 +163,13 @@ export class OrganizationRegistrationService {
         const adminUser = await tx.user.create({
           data: {
             email: request.adminUser.email.toLowerCase().trim(),
-            password: hashedPassword,
-            firstName: request.adminUser.firstName,
-            lastName: request.adminUser.lastName,
-            organizationId: organization.id,
+            password_hash: hashedPassword,
+            first_name: request.adminUser.firstName,
+            last_name: request.adminUser.lastName,
+            organization_id: organization.id,
             role: 'ORG_ADMIN',
-            phone: request.adminUser.phone || null,
-            isActive: true,
+            phone_number: request.adminUser.phone || null,
+            is_active: true,
           },
           include: {
             organization: {
