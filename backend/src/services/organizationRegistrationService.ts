@@ -172,7 +172,7 @@ export class OrganizationRegistrationService {
             is_active: true,
           },
           include: {
-            organization: {
+            organizations: {
               select: {
                 id: true,
                 name: true,
