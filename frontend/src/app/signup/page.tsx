@@ -107,7 +107,8 @@ export default function SignupPage() {
         }
 
         if (params.toString()) {
-          const response = await fetch(`http://localhost:3001/api/organizations/check-availability?${params}`);
+          const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
+          const response = await fetch(`${apiUrl}/api/organizations/check-availability?${params}`);
           const result = await response.json();
           
           if (result.success) {
@@ -221,7 +222,8 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3001/api/organizations/verify-phone', {
+      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/organizations/verify-phone`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -249,7 +251,8 @@ export default function SignupPage() {
 
   const resendVerificationCode = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/organizations/resend-verification', {
+      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/organizations/resend-verification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,7 +302,8 @@ export default function SignupPage() {
         marketingConsent: formData.marketingConsent,
       };
 
-      const response = await fetch('http://localhost:3001/api/organizations/register', {
+      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/organizations/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
