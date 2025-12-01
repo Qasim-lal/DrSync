@@ -236,13 +236,14 @@ export class OrganizationRegistrationService {
     } catch (error) {
       logger.error('Organization registration failed', { 
         error: (error as Error).message,
+        stack: (error as Error).stack,
         organizationName: request.organizationName,
         adminEmail: request.adminUser.email,
       });
 
       return {
         success: false,
-        error: 'Registration failed. Please try again or contact support.',
+        error: `Registration failed: ${(error as Error).message}`,
       };
     }
   }
