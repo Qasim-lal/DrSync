@@ -267,7 +267,7 @@ router.get('/check-availability', asyncHandler(async (req: Request, res: Respons
       });
     }
 
-    const { PrismaClient } = await import('../generated/prisma');
+    const { PrismaClient } = await import('@prisma/client');
     const prisma = new PrismaClient();
 
     const availability: {
