@@ -58,6 +58,14 @@ export class ScheduledBillingService {
       timezone: 'UTC',
     });
 
+    // Cleanup stale phone verifications every 15 minutes
+    cron.schedule('*/15 * * * *', async () => {
+      await SubscriptionService.cleanupStaleVerifications();
+    }, {
+      scheduled: true,
+      timezone: 'UTC',
+    });
+
     logger.info('Scheduled billing tasks started successfully');
   }
 

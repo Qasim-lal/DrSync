@@ -96,9 +96,13 @@ export class SubscriptionService {
     existingTrial?: TrialHistory;
   }> {
     try {
-      // Check if phone number has already used a trial
-      const existingTrialByPhone = await prisma.trialHistory.findUnique({
-        where: { phoneNumber },
+      // Check if phone number has already COMPLETED a trial registration
+      // Ignore records with empty organizationName (these are just phone verifications)
+      const existingTrialByPhone = await prisma.trialHistory.findFirst({
+        where: { 
+          phoneNumber,
+          organizationName: { not: '' } // Only block if organization was registered
+        },
       });
 
       if (existingTrialByPhone) {
@@ -245,6 +249,34 @@ export class SubscriptionService {
     } catch (error) {
       logger.error('Failed to start trial period', { error: (error as Error).message, organizationId });
       throw new Error('Failed to start trial period');
+    }
+  }
+
+  /**
+   * Clean up stale phone verification records (incomplete signups)
+   * Called automatically every 15 minutes to prevent blocking legitimate users
+   */
+  static async cleanupStaleVerifications(): Promise<number> {
+    try {
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+      
+      const result = await prisma.trialHistory.deleteMany({
+        where: {
+          organizationName: '', // Incomplete verifications
+          createdAt: {
+            lt: fifteenMinutesAgo,
+          },
+        },
+      });
+
+      if (result.count > 0) {
+        logger.info(`Cleaned up ${result.count} stale phone verification records`);
+      }
+
+      return result.count;
+    } catch (error) {
+      logger.error('Failed to clean up stale verifications', { error: (error as Error).message });
+      return 0;
     }
   }
 
