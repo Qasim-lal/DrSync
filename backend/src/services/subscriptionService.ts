@@ -234,7 +234,7 @@ export class SubscriptionService {
       const organization = await prisma.organization.update({
         where: { id: organizationId },
         data: {
-          subscriptionStatus: 'TRIAL',
+          subscription_status: 'TRIAL',
           subscriptionEndsAt: trialEndDate,
         },
       });
