@@ -141,10 +141,10 @@ export class OrganizationRegistrationService {
             slug: await this.generateUniqueSlug(request.organizationName),
             organizationType: request.organizationType || 'CLINIC',
             email: request.adminUser.email, // Use admin email as organization contact
-            phone: request.adminUser.phone,
-            subscriptionStatus: 'TRIAL',
-            subscriptionPlan: 'BASIC',
-            isActive: true,
+            phone_number: request.adminUser.phone,
+            subscription_status: 'TRIAL',
+            subscription_plan: 'BASIC',
+            is_active: true,
             // Combine address fields into single address string
             address: request.address ? 
               [request.address.street, request.address.city, request.address.state, request.address.postalCode, request.address.country || 'Pakistan']
