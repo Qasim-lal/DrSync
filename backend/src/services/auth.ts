@@ -169,12 +169,12 @@ export class AuthService {
       const user = await prisma.user.findUnique({
         where: { email: email.toLowerCase().trim() },
         include: {
-          organization: {
+          organizations: {
             select: {
               id: true,
               name: true,
               slug: true,
-              isActive: true,
+              is_active: true,
             },
           },
         },
@@ -192,13 +192,13 @@ export class AuthService {
       }
 
       // Check if organization is active
-      if (!user.organization.isActive) {
-        logger.warn(`Authentication attempt with inactive organization: ${user.organizationId}`);
+      if (!user.organizations.is_active) {
+        logger.warn(`Authentication attempt with inactive organization: ${user.organization_id}`);
         return null;
       }
 
       // Verify password
-      const isValidPassword = await this.verifyPassword(password, user.password);
+      const isValidPassword = await this.verifyPassword(password, user.password_hash);
       if (!isValidPassword) {
         logger.warn(`Authentication attempt with invalid password: ${email}`);
         return null;
@@ -207,11 +207,11 @@ export class AuthService {
       // Update last login time
       await prisma.user.update({
         where: { id: user.id },
-        data: { lastLoginAt: new Date() },
+        data: { last_login_at: new Date() },
       });
 
       // Remove password from returned user object
-      const { password: _, ...userWithoutPassword } = user;
+      const { password_hash: _, ...userWithoutPassword } = user;
       
       logger.info(`User authenticated successfully: ${email}`);
       return userWithoutPassword as AuthUser;
@@ -229,23 +229,23 @@ export class AuthService {
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-          organization: {
+          organizations: {
             select: {
               id: true,
               name: true,
               slug: true,
-              isActive: true,
+              is_active: true,
             },
           },
         },
       });
 
-      if (!user || !user.isActive || !user.organization.isActive) {
+      if (!user || !user.is_active || !user.organizations.is_active) {
         return null;
       }
 
       // Remove password from returned user object
-      const { password: _, ...userWithoutPassword } = user;
+      const { password_hash: _, ...userWithoutPassword } = user;
       return userWithoutPassword as AuthUser;
     } catch (error) {
       logger.error('Error fetching user by ID:', error);
