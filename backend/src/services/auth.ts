@@ -186,7 +186,7 @@ export class AuthService {
       }
 
       // Check if user is active
-      if (!user.isActive) {
+      if (!user.is_active) {
         logger.warn(`Authentication attempt with inactive user: ${email}`);
         return null;
       }
