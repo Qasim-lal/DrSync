@@ -9,47 +9,59 @@ datasource db {
 }
 
 model Organization {
-  id                    String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  name                  String            @db.VarChar(255)
-  slug                  String            @unique @db.VarChar(100)
-  organizationType      OrganizationType? @default(CLINIC) @map("organizationType")
-  phone_number          String?           @db.VarChar(20)
-  email                 String?           @db.VarChar(255)
-  address               String?
-  google_sheets_id      String?           @db.VarChar(255)
-  whatsapp_phone_number String?           @db.VarChar(20)
-  whatsappBusinessId    String?           @map("whatsappBusinessId")
-  whatsapp_api_token    String?
-  whatsapp_credentials  Json?
-  timezone              String?           @default("UTC") @db.VarChar(50)
-  language              String?           @default("en") @db.VarChar(10)
-  subscription_tier     String?           @default("basic") @db.VarChar(50)
-  subscription_status   String?           @default("TRIAL")
-  subscription_plan     String?           @default("BASIC")
-  subscriptionEndsAt    DateTime?         @map("subscriptionEndsAt")
-  doctorCount           Int?              @default(1) @map("doctorCount")
-  maxPatients           Int?              @map("maxPatients")
-  maxAppointments       Int?              @map("maxAppointments")
-  subscriptionType      String?           @map("subscriptionType")
-  lastBilledAt          DateTime?         @map("lastBilledAt")
-  nextBillingDate       DateTime?         @map("nextBillingDate")
-  paymentMethod         String?           @map("paymentMethod")
-  region                String?           @default("PAKISTAN") @map("region")
-  whatsappWebhookUrl    String?           @map("whatsappWebhookUrl")
-  googleSheetsStructure String?           @default("TABS") @map("googleSheetsStructure")
-  is_active             Boolean?          @default(true)
-  created_at            DateTime?         @default(now()) @db.Timestamptz(6)
-  updated_at            DateTime?         @default(now()) @db.Timestamptz(6)
+  id                         String                @id @default(cuid())
+  name                       String
+  slug                       String                @unique
+  organizationType           OrganizationType?     @default(CLINIC)
+  phone                      String?
+  email                      String?
+  address                    String?
+  website                    String?
+  subscriptionPlan           SubscriptionPlan      @default(FREE)
+  subscriptionStatus         SubscriptionStatus    @default(TRIAL)
+  subscriptionEndsAt         DateTime?
+  googleSheetsId             String?
+  googleCredentials          Json?
+  whatsappPhoneNumber        String?
+  whatsappBusinessId         String?
+  whatsappCredentials        Json?
+  timezone                   String?               @default("UTC")
+  language                   String?               @default("en")
+  isActive                   Boolean               @default(true)
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  doctorCount                Int?                  @default(1)
+  googleSheetsStructure      String?               @default("TABS")
+  lastBilledAt               DateTime?
+  nextBillingDate            DateTime?
+  paymentMethod              String?
+  region                     String?               @default("PAKISTAN")
+  subscriptionType           String?
+  whatsappWebhookUrl         String?
+  maxAppointments            Int?
+  maxPatients                Int?
+  googleSheetsSyncEnabled    Boolean?
+  googleSheetsSyncFrequency  String?
+  googleSheetsTokens         Json?
+  googleSheetsUrl            String?
+  setupProgress              Int?
+  whatsappConfigured         Boolean?
+  whatsappPhoneVerified      Boolean?
+  whatsappVerifyToken        String?
+  whatsappWebhookToken       String?
+  
   appointments          Appointment[]
-  audit_logs            AuditLog[]
-  message_templates     MessageTemplate[]
   patients              Patient[]
   providers             Provider[]
-  system_config         SystemConfig[]
+  appointmentReminders  AppointmentReminder[]
+  notificationSettings  NotificationSettings[]
+  whatsappMessages      WhatsAppMessage[]
+  auditLogs             AuditLog[]
+  messageTemplates      MessageTemplate[]
+  systemConfig          SystemConfig[]
   users                 User[]
-  whatsapp_messages     WhatsAppMessage[]
 
-  @@index([slug], map: "idx_organizations_slug")
+  @@index([slug])
   @@map("organizations")
 }
 
@@ -71,7 +83,6 @@ model User {
   password        String?
   phone           String?
   audit_logs      AuditLog[]
-  providers       Provider[]
   organizations   Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([email], map: "idx_users_email")
@@ -80,91 +91,109 @@ model User {
 }
 
 model Provider {
-  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id  String           @db.Uuid
-  user_id          String?          @db.Uuid
-  name             String           @db.VarChar(255)
-  specialization   String?          @db.VarChar(255)
-  qualification    String?          @db.VarChar(500)
-  experience_years Int?
-  consultation_fee Decimal?         @db.Decimal(10, 2)
-  phone_number     String?          @db.VarChar(20)
-  email            String?          @db.VarChar(255)
-  working_hours    Json?
-  is_available     Boolean?         @default(true)
-  status           provider_status? @default(active)
-  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
-  updated_at       DateTime?        @default(now()) @db.Timestamptz(6)
-  appointments     Appointment[]
-  organizations    Organization     @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users            User?            @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  id                   String      @id @default(cuid())
+  organizationId       String
+  firstName            String
+  lastName             String
+  title                String?
+  specialization       String?
+  licenseNumber        String?
+  email                String?
+  phone                String?
+  experience           Int?
+  qualifications       String?
+  biography            String?
+  isActive             Boolean     @default(true)
+  consultationDuration Int?
+  consultationFee      Decimal?    @db.Decimal(10, 2)
+  currency             String?
+  workingHours         Json?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  
+  appointments         Appointment[]
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@index([organization_id], map: "idx_providers_organization_id")
+  @@index([organizationId])
   @@map("providers")
 }
 
 model Patient {
-  id                      String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id         String            @db.Uuid
-  external_id             String?           @db.VarChar(255)
-  first_name              String            @db.VarChar(100)
-  last_name               String            @db.VarChar(100)
-  phone_number            String            @db.VarChar(20)
-  email                   String?           @db.VarChar(255)
-  date_of_birth           DateTime?         @db.Date
-  gender                  String?           @db.VarChar(10)
-  address                 String?
-  medical_history         String?
-  emergency_contact_name  String?           @db.VarChar(255)
-  emergency_contact_phone String?           @db.VarChar(20)
-  language                String?           @default("en") @db.VarChar(10)
-  whatsapp_opted_in       Boolean?          @default(true)
-  last_synced_at          DateTime?         @db.Timestamptz(6)
-  created_at              DateTime?         @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime?         @default(now()) @db.Timestamptz(6)
-  appointments            Appointment[]
-  organizations           Organization      @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  whatsapp_messages       WhatsAppMessage[]
+  id                     String            @id @default(cuid())
+  organizationId         String
+  firstName              String
+  lastName               String
+  phone                  String
+  email                  String?
+  dateOfBirth            DateTime?
+  gender                 Gender?
+  address                String?
+  city                   String?
+  state                  String?
+  postalCode             String?
+  country                String            @default("Pakistan")
+  bloodGroup             BloodGroup?
+  allergies              String?
+  medicalHistory         String?
+  emergencyContact       String?
+  whatsappNumber         String?
+  preferredLanguage      String            @default("en")
+  isActive               Boolean           @default(true)
+  registrationSource     RegistrationSource @default(WHATSAPP)
+  googleSheetsRowId      String?
+  lastSyncedAt           DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  primaryContact         Boolean           @default(true)
+  relationToPrimaryContact String?
+  
+  appointments           Appointment[]
+  organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  whatsappMessages       WhatsAppMessage[]
 
-  @@unique([organization_id, phone_number])
-  @@index([organization_id], map: "idx_patients_organization_id")
-  @@index([organization_id, phone_number], map: "idx_patients_phone")
+  @@index([organizationId])
   @@map("patients")
 }
 
 model Appointment {
-  id                   String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  organization_id      String              @db.Uuid
-  external_id          String?             @db.VarChar(255)
-  patient_id           String              @db.Uuid
-  provider_id          String              @db.Uuid
-  appointment_date     DateTime            @db.Date
-  appointment_time     DateTime            @db.Time(6)
-  duration_minutes     Int?                @default(30)
-  status               appointment_status? @default(scheduled)
-  reason_for_visit     String?
-  notes                String?
-  consultation_fee     Decimal?            @db.Decimal(10, 2)
-  whatsapp_message_id  String?             @db.VarChar(255)
-  reminder_sent        Boolean?            @default(false)
-  reminder_sent_at     DateTime?           @db.Timestamptz(6)
-  confirmation_sent    Boolean?            @default(false)
-  confirmation_sent_at DateTime?           @db.Timestamptz(6)
-  follow_up_sent       Boolean?            @default(false)
-  follow_up_sent_at    DateTime?           @db.Timestamptz(6)
-  last_synced_at       DateTime?           @db.Timestamptz(6)
-  created_at           DateTime?           @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?           @default(now()) @db.Timestamptz(6)
-  organizations        Organization        @relation(fields: [organization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  patients             Patient             @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  providers            Provider            @relation(fields: [provider_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  whatsapp_messages    WhatsAppMessage[]
+  id                   String              @id @default(cuid())
+  title                String?
+  description          String?
+  scheduledAt          DateTime
+  duration             Int                 @default(30)
+  endTime              DateTime
+  status               AppointmentStatus   @default(SCHEDULED)
+  priority             AppointmentPriority @default(NORMAL)
+  bookingSource        BookingSource       @default(WHATSAPP)
+  bookedAt             DateTime            @default(now())
+  reminderSent         Boolean             @default(false)
+  reminderSentAt       DateTime?
+  followUpSent         Boolean             @default(false)
+  followUpSentAt       DateTime?
+  actualStartTime      DateTime?
+  actualEndTime        DateTime?
+  consultationNotes    String?
+  prescriptions        String?
+  nextAppointmentDate  DateTime?
+  googleSheetsRowId    String?
+  lastSyncedAt         DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  organizationId       String
+  patientId            String
+  providerId           String
+  lockToken            String?
+  lockedAt             DateTime?
+  lockedBy             String?
 
-  @@unique([organization_id, external_id])
-  @@index([organization_id, appointment_date], map: "idx_appointments_date")
-  @@index([organization_id], map: "idx_appointments_organization_id")
-  @@index([patient_id], map: "idx_appointments_patient")
-  @@index([provider_id], map: "idx_appointments_provider")
+  organization         Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  patient              Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  provider             Provider              @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  whatsappMessages     WhatsAppMessage[]
+  appointmentReminders AppointmentReminder[]
+
+  @@index([scheduledAt, providerId])
+  @@index([patientId, scheduledAt])
   @@map("appointments")
 }
 
@@ -256,6 +285,31 @@ enum appointment_status {
   no_show
 }
 
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum AppointmentPriority {
+  LOW
+  NORMAL
+  HIGH
+  EMERGENCY
+}
+
+enum BookingSource {
+  WHATSAPP
+  DASHBOARD
+  PHONE
+  WALK_IN
+  GOOGLE_SHEETS
+}
+
 enum message_type {
   appointment_confirmation
   reminder
@@ -319,4 +373,137 @@ model BillingHistory {
 
   @@index([organizationId, billingPeriod])
   @@map("billing_history")
+}
+
+model AppointmentReminder {
+  id             String          @id @default(cuid())
+  organizationId String
+  appointmentId  String
+  reminderType   ReminderType
+  trigger        ReminderTrigger @default(AUTOMATIC)
+  sentBy         String?
+  scheduledFor   DateTime
+  sentAt         DateTime?
+  status         ReminderStatus  @default(PENDING)
+  messageId      String?
+  skipReason     String?
+  attempts       Int             @default(0)
+  lastAttemptAt  DateTime?
+  errorMessage   String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appointment  Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, scheduledFor])
+  @@index([status, scheduledFor])
+  @@index([appointmentId, reminderType])
+  @@index([trigger])
+  @@map("appointment_reminders")
+}
+
+model NotificationSettings {
+  id                          String         @id @default(cuid())
+  organizationId              String         @unique
+  language                    String         @default("en")
+  bookingConfirmationsEnabled Boolean        @default(true)
+  remindersEnabled            Boolean        @default(true)
+  followUpsEnabled            Boolean        @default(false)
+  medicationRemindersEnabled  Boolean        @default(false)
+  wellnessChecksEnabled       Boolean        @default(false)
+  reminderTiming              ReminderTiming @default(HOURS_24)
+  customReminderMinutes       Int?
+  // Follow-up timing configuration (in hours)
+  sameDayFollowUpHours        Int            @default(2)  @map("same_day_follow_up_hours") // Hours after completion
+  nextDayFollowUpHours        Int            @default(24) @map("next_day_follow_up_hours") // Hours after appointment
+  noShowFollowUpHours         Int            @default(1)  @map("no_show_follow_up_hours")  // Hours after no-show detection
+  enabledChannels             String[]       @default(["WHATSAPP"])
+  quietHoursEnabled           Boolean        @default(false)
+  quietHoursStart             String?
+  quietHoursEnd               String?
+  monthlyCap                  Decimal?       @db.Decimal(10, 2)
+  currentMonthSpend           Decimal        @default(0) @db.Decimal(10, 2)
+  alertThreshold              Int            @default(80)
+  createdAt                   DateTime       @default(now())
+  updatedAt                   DateTime       @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("notification_settings")
+}
+
+enum ReminderType {
+  REMINDER_24H
+  REMINDER_2H
+  REMINDER_30MIN
+  FOLLOWUP_SAME_DAY
+  FOLLOWUP_NEXT_DAY
+  NO_SHOW_FOLLOWUP
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum ReminderTrigger {
+  AUTOMATIC
+  MANUAL
+}
+
+enum ReminderTiming {
+  IMMEDIATELY
+  MINUTES_30
+  HOURS_1
+  HOURS_2
+  HOURS_4
+  HOURS_24
+  HOURS_48
+  HOURS_72
+  CUSTOM
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+}
+
+enum RegistrationSource {
+  WHATSAPP
+  DASHBOARD
+  GOOGLE_SHEETS
+  API
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
 }

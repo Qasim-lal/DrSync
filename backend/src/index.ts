@@ -5,6 +5,7 @@ import { connectDatabase } from './services/prisma';
 import { connectRedis } from './config/redis';
 import ScheduledBillingService from './services/scheduledBillingService';
 import { checkEmailConfigOnStartup } from './utils/emailConfigValidator';
+import reminderSystemBootstrap from './services/reminderSystemBootstrap';
 
 // Load environment variables
 dotenv.config();
@@ -12,13 +13,15 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 
 // Graceful shutdown handler
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM signal received: closing HTTP server');
+  await reminderSystemBootstrap.shutdown();
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT signal received: closing HTTP server');
+  await reminderSystemBootstrap.shutdown();
   process.exit(0);
 });
 
@@ -44,6 +47,13 @@ const startServer = async () => {
       logger.info('Starting scheduled billing tasks...');
       ScheduledBillingService.startScheduledTasks();
       logger.info('Scheduled billing tasks started successfully');
+    }
+
+    // Initialize reminder system
+    if (process.env.NODE_ENV !== 'test') {
+      logger.info('Initializing reminder system...');
+      await reminderSystemBootstrap.initialize();
+      logger.info('Reminder system initialized successfully');
     }
 
     // Start HTTP server
