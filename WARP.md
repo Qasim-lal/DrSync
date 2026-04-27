@@ -48,18 +48,15 @@ DrSync is a SaaS healthcare appointment management platform that bridges WhatsAp
 
 ### 1.4 Production Environment
 - **VPS Provider:** Contabo
-- **VPS IP Address:** 62.146.239.128
-- **Frontend URL:** http://62.146.239.128:3000
-- **Backend API URL:** http://62.146.239.128:3001
+- **Frontend URL:** https://drsync.app
+- **Backend API URL:** https://api.drsync.app
 - **Database:** PostgreSQL on VPS (Docker container)
 - **Cache:** Redis on VPS (Docker container)
-- **SSL Status:** ❌ Not configured (HTTP only)
-- **Domain:** Not configured (using IP address)
+- **SSL Status:** ✅ Active (Let's Encrypt via Certbot + nginx)
+- **Domain:** drsync.app (registered at Porkbun)
 
-**⚠️ Production Blockers:**
-- WhatsApp webhooks require HTTPS (SSL certificate needed)
-- Meta requires domain name for webhook registration
-- Current HTTP-only setup will be rejected by WhatsApp Business API
+**⚠️ Remaining Production Blocker:**
+- Meta Business Manager account verification needed for WhatsApp webhook registration (TASK-039 production testing)
 
 ---
 
