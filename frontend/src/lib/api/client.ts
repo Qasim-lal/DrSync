@@ -20,7 +20,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     // Get token from localStorage or session
-    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -43,7 +43,9 @@ apiClient.interceptors.response.use(
         case 401:
           // Unauthorized - redirect to login
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
             window.location.href = '/login';
           }
           break;
