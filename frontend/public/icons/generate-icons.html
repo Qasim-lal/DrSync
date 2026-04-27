@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DrSync Icon Generator</title>
+</head>
+<body>
+    <h2>DrSync PWA Icons</h2>
+    <p>Right-click and save each icon below:</p>
+    
+    <!-- 72x72 -->
+    <div>
+        <h3>icon-72x72.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
+            <rect width="72" height="72" fill="#2563eb" rx="12"/>
+            <g stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M18 36h36M36 18v36"/>
+                <path d="M54 27l-9 9-9-9M54 45l-9-9-9 9"/>
+            </g>
+            <circle cx="36" cy="36" r="3" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 96x96 -->
+    <div>
+        <h3>icon-96x96.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+            <rect width="96" height="96" fill="#2563eb" rx="16"/>
+            <g stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M24 48h48M48 24v48"/>
+                <path d="M72 36l-12 12-12-12M72 60l-12-12-12 12"/>
+            </g>
+            <circle cx="48" cy="48" r="4" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 128x128 -->
+    <div>
+        <h3>icon-128x128.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+            <rect width="128" height="128" fill="#2563eb" rx="20"/>
+            <g stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M32 64h64M64 32v64"/>
+                <path d="M96 48l-16 16-16-16M96 80l-16-16-16 16"/>
+            </g>
+            <circle cx="64" cy="64" r="5" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 144x144 -->
+    <div>
+        <h3>icon-144x144.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+            <rect width="144" height="144" fill="#2563eb" rx="22"/>
+            <g stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M36 72h72M72 36v72"/>
+                <path d="M108 54l-18 18-18-18M108 90l-18-18-18 18"/>
+            </g>
+            <circle cx="72" cy="72" r="6" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 152x152 -->
+    <div>
+        <h3>icon-152x152.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="152" height="152" viewBox="0 0 152 152">
+            <rect width="152" height="152" fill="#2563eb" rx="24"/>
+            <g stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M38 76h76M76 38v76"/>
+                <path d="M114 57l-19 19-19-19M114 95l-19-19-19 19"/>
+            </g>
+            <circle cx="76" cy="76" r="6" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 192x192 -->
+    <div>
+        <h3>icon-192x192.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+            <rect width="192" height="192" fill="#2563eb" rx="24"/>
+            <g stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M48 96h96M96 48v96"/>
+                <path d="M144 72l-24 24-24-24M144 120l-24-24-24 24"/>
+            </g>
+            <circle cx="96" cy="96" r="8" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 384x384 -->
+    <div>
+        <h3>icon-384x384.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="384" height="384" viewBox="0 0 384 384">
+            <rect width="384" height="384" fill="#2563eb" rx="48"/>
+            <g stroke="white" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M96 192h192M192 96v192"/>
+                <path d="M288 144l-48 48-48-48M288 240l-48-48-48 48"/>
+            </g>
+            <circle cx="192" cy="192" r="16" fill="white"/>
+        </svg>
+    </div>
+
+    <!-- 512x512 -->
+    <div>
+        <h3>icon-512x512.png</h3>
+        <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+            <rect width="512" height="512" fill="#2563eb" rx="64"/>
+            <g stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                <path d="M128 256h256M256 128v256"/>
+                <path d="M384 192l-64 64-64-64M384 320l-64-64-64 64"/>
+            </g>
+            <circle cx="256" cy="256" r="20" fill="white"/>
+        </svg>
+    </div>
+
+    <script>
+        // Function to convert SVG to PNG and download
+        function svgToPng(svgElement, filename) {
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const img = new Image();
+            
+            canvas.width = svgElement.width.baseVal.value;
+            canvas.height = svgElement.height.baseVal.value;
+            
+            img.onload = function() {
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(function(blob) {
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = URL.createObjectURL(blob);
+                    link.click();
+                });
+            };
+            
+            img.src = "data:image/svg+xml;base64," + btoa(svgData);
+        }
+
+        // Add click handlers to download icons
+        document.querySelectorAll('svg').forEach((svg, index) => {
+            const sizes = ['72x72', '96x96', '128x128', '144x144', '152x152', '192x192', '384x384', '512x512'];
+            svg.style.cursor = 'pointer';
+            svg.addEventListener('click', () => {
+                svgToPng(svg, `icon-${sizes[index]}.png`);
+            });
+        });
+    </script>
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        div { margin: 20px 0; padding: 10px; border: 1px solid #ddd; }
+        svg { border: 1px solid #ccc; margin: 10px; cursor: pointer; }
+        svg:hover { opacity: 0.8; }
+    </style>
+
+    <p><strong>Instructions:</strong> Click on any SVG icon above to download it as a PNG file.</p>
+</body>
+</html>
