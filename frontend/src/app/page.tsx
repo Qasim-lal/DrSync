@@ -21,7 +21,8 @@ export default function HomePage() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const response = await fetch(`http://${window.location.hostname}:3001/health`);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || `http://${window.location.hostname}:3001`;
+        const response = await fetch(`${apiUrl}/health`);
         const data = await response.json();
         setHealthStatus(data.data);
       } catch (error) {
@@ -232,14 +233,14 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
             <Link 
-              href="http://localhost:3001/health"
+              href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:3001'}/health`}
               target="_blank"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
               API Health Check
             </Link>
             <Link 
-              href="http://localhost:3001/api/docs"
+              href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/docs`}
               target="_blank"
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
