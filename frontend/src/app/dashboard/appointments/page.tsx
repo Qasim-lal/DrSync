@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  getAppointments, createAppointment, updateAppointment,
+  getAppointments, createAppointment,
   confirmAppointment, cancelAppointment,
   getPatients, getProviders,
   type Appointment, type AppointmentStatus, type Patient, type Provider,
