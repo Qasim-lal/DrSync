@@ -109,8 +109,7 @@ export default function SignupPage() {
         }
 
         if (params.toString()) {
-          const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
-          const response = await fetch(`${apiUrl}/api/organizations/check-availability?${params}`);
+        const response = await fetch(`/api/organizations/check-availability?${params}`);
           const result = await response.json();
           
           if (result.success) {
@@ -232,8 +231,7 @@ export default function SignupPage() {
     setError('');
 
     try {
-      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/organizations/verify-phone`, {
+      const response = await fetch('/api/organizations/verify-phone', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,8 +259,7 @@ export default function SignupPage() {
 
   const resendVerificationCode = async () => {
     try {
-      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/organizations/resend-verification`, {
+      const response = await fetch('/api/organizations/resend-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,8 +309,7 @@ export default function SignupPage() {
         marketingConsent: formData.marketingConsent,
       };
 
-      const apiUrl = typeof window !== 'undefined' ? `http://${window.location.hostname}:3001` : 'http://localhost:3001';
-      const response = await fetch(`${apiUrl}/api/organizations/register`, {
+      const response = await fetch('/api/organizations/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +321,7 @@ export default function SignupPage() {
 
       if (result.success && result.data) {
         // Store authentication tokens
-        localStorage.setItem('accessToken', result.data.tokens.accessToken);
+        localStorage.setItem('token', result.data.tokens.accessToken);
         localStorage.setItem('refreshToken', result.data.tokens.refreshToken);
         
         // Store user data
