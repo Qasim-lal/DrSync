@@ -25,7 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       // ignore parse errors
     }
     setReady(true);
-  }, [router]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) {
     return (
