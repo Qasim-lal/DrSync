@@ -174,7 +174,7 @@ export class AuthService {
               id: true,
               name: true,
               slug: true,
-              is_active: true,
+              isActive: true,
             },
           },
         },
@@ -192,7 +192,7 @@ export class AuthService {
       }
 
       // Check if organization is active
-      if (!user.organizations.is_active) {
+      if (!(user.organizations as any).isActive) {
         logger.warn(`Authentication attempt with inactive organization: ${user.organization_id}`);
         return null;
       }
@@ -234,13 +234,13 @@ export class AuthService {
               id: true,
               name: true,
               slug: true,
-              is_active: true,
+              isActive: true,
             },
           },
         },
       });
 
-      if (!user || !user.is_active || !user.organizations.is_active) {
+      if (!user || !user.is_active || !(user.organizations as any).isActive) {
         return null;
       }
 
