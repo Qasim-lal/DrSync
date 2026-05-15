@@ -82,7 +82,11 @@ export const authenticate = async (
     }
 
     // Attach user and token to request object
-    req.user = user;
+    // Add organizationId alias (controllers use camelCase, Prisma returns snake_case)
+    req.user = {
+      ...user,
+      organizationId: (user as any).organization_id || payload.organizationId,
+    } as AuthUser;
     req.token = token;
 
     logger.debug(`User authenticated: ${user.email} (${user.role})`);
