@@ -88,7 +88,7 @@ export class AuthService {
   generateTokenPair(user: AuthUser): TokenPair {
     const payload: JWTPayload = {
       userId: user.id,
-      organizationId: user.organizationId,
+      organizationId: (user as any).organization_id || (user as any).organizationId,
       role: user.role,
       email: user.email,
     };
