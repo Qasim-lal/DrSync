@@ -55,6 +55,8 @@ model Organization {
   providers             Provider[]
   appointmentReminders  AppointmentReminder[]
   notificationSettings  NotificationSettings[]
+  messageCostTracking   MessageCostTracking[]
+  patientNotificationOverrides PatientNotificationOverride[]
   whatsappMessages      WhatsAppMessage[]
   auditLogs             AuditLog[]
   messageTemplates      MessageTemplate[]
@@ -149,6 +151,7 @@ model Patient {
   
   appointments           Appointment[]
   organization           Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  notificationOverrides  PatientNotificationOverride[]
   whatsappMessages       WhatsAppMessage[]
 
   @@index([organizationId])
@@ -407,11 +410,21 @@ model NotificationSettings {
   id                          String         @id @default(cuid())
   organizationId              String         @unique
   language                    String         @default("en")
+  presetMode                  PresetMode     @default(RECOMMENDED)
   bookingConfirmationsEnabled Boolean        @default(true)
   remindersEnabled            Boolean        @default(true)
   followUpsEnabled            Boolean        @default(false)
   medicationRemindersEnabled  Boolean        @default(false)
   wellnessChecksEnabled       Boolean        @default(false)
+  preAppointmentInstructionsEnabled Boolean  @default(false)
+  arrivalNotificationEnabled  Boolean        @default(false)
+  appointmentCompletionEnabled Boolean       @default(false)
+  reschedulingConfirmationEnabled Boolean    @default(true)
+  cancellationConfirmationEnabled Boolean    @default(true)
+  noShowFollowupEnabled       Boolean        @default(false)
+  paymentReminderEnabled      Boolean        @default(false)
+  patientSegmentationEnabled  Boolean        @default(false)
+  smartBundlingEnabled        Boolean        @default(false)
   reminderTiming              ReminderTiming @default(HOURS_24)
   customReminderMinutes       Int?
   // Follow-up timing configuration (in hours)
@@ -422,9 +435,11 @@ model NotificationSettings {
   quietHoursEnabled           Boolean        @default(false)
   quietHoursStart             String?
   quietHoursEnd               String?
+  costPerMessage              Decimal        @default(3.50) @db.Decimal(10, 2)
   monthlyCap                  Decimal?       @db.Decimal(10, 2)
   currentMonthSpend           Decimal        @default(0) @db.Decimal(10, 2)
   alertThreshold              Int            @default(80)
+  averageMonthlyAppointments  Int            @default(0)
   createdAt                   DateTime       @default(now())
   updatedAt                   DateTime       @updatedAt
 
@@ -432,6 +447,82 @@ model NotificationSettings {
 
   @@index([organizationId])
   @@map("notification_settings")
+}
+
+model MessageCostTracking {
+  id                            String   @id @default(cuid())
+  organizationId                String
+  periodYear                    Int
+  periodMonth                   Int
+  bookingConfirmationsSent      Int      @default(0)
+  remindersSent                 Int      @default(0)
+  followUpsSent                 Int      @default(0)
+  medicationRemindersSent       Int      @default(0)
+  wellnessChecksSent            Int      @default(0)
+  preInstructionsSent           Int      @default(0)
+  arrivalNotificationsSent      Int      @default(0)
+  completionMessagesSent        Int      @default(0)
+  reschedulingConfirmationsSent Int      @default(0)
+  cancellationConfirmationsSent Int      @default(0)
+  noShowFollowupsSent           Int      @default(0)
+  paymentRemindersSent          Int      @default(0)
+  totalMessagesSent             Int      @default(0)
+  messagesSavedBySettings       Int      @default(0)
+  messagesBundled               Int      @default(0)
+  estimatedCost                 Decimal  @default(0) @db.Decimal(10, 2)
+  actualCost                    Decimal? @db.Decimal(10, 2)
+  costSaved                     Decimal  @default(0) @db.Decimal(10, 2)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, periodYear, periodMonth])
+  @@unique([organizationId, periodYear, periodMonth])
+  @@map("message_cost_tracking")
+}
+
+model PatientNotificationOverride {
+  id                           String         @id @default(cuid())
+  patientId                    String
+  organizationId               String
+  patientSegment               PatientSegment @default(REGULAR)
+  bookingConfirmationsEnabled  Boolean?
+  remindersEnabled             Boolean?
+  followUpsEnabled             Boolean?
+  medicationRemindersEnabled   Boolean?
+  wellnessChecksEnabled        Boolean?
+  quietHoursEnabled            Boolean        @default(false)
+  quietHoursStart              String?
+  quietHoursEnd                String?
+  language                     String?
+  preferredChannel             String?
+  doNotContact                 Boolean        @default(false)
+  createdAt                    DateTime       @default(now())
+  updatedAt                    DateTime       @updatedAt
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, patientSegment])
+  @@index([patientId])
+  @@unique([patientId, organizationId])
+  @@map("patient_notification_overrides")
+}
+
+enum PresetMode {
+  BUDGET
+  RECOMMENDED
+  PREMIUM
+  CUSTOM
+}
+
+enum PatientSegment {
+  NEW
+  REGULAR
+  VIP
+  AT_RISK
+  INACTIVE
 }
 
 enum ReminderType {

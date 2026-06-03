@@ -32,6 +32,7 @@ export enum MessageType {
   CANCELLATION_CONFIRMATION = 'cancellation_confirmation',
   NO_SHOW_FOLLOWUP = 'no_show_followup',
   PAYMENT_REMINDER = 'payment_reminder',
+  OTHER = 'other',
 }
 
 interface CostBreakdown {
@@ -77,6 +78,8 @@ class MessageCostTrackingService {
 
       // Get column name for this message type
       const columnName = this.getMessageTypeColumn(messageType);
+      const typedMessageIncrement = columnName ? { [columnName]: { increment: count } } : {};
+      const typedMessageCreate = columnName ? { [columnName]: count } : {};
 
       await prisma.messageCostTracking.upsert({
         where: {
@@ -87,7 +90,7 @@ class MessageCostTrackingService {
           },
         },
         update: {
-          [columnName]: { increment: count },
+          ...typedMessageIncrement,
           totalMessagesSent: { increment: count },
           estimatedCost: { increment: messageCost },
           updatedAt: new Date(),
@@ -96,7 +99,7 @@ class MessageCostTrackingService {
           organizationId,
           periodYear: year,
           periodMonth: month,
-          [columnName]: count,
+          ...typedMessageCreate,
           totalMessagesSent: count,
           estimatedCost: messageCost,
         },
@@ -181,6 +184,67 @@ class MessageCostTrackingService {
       logger.error('[MessageCostTracking] Failed to track message saved', {
         organizationId,
         messageType,
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Track messages combined by smart bundling.
+   */
+  async trackMessagesBundled(
+    organizationId: string,
+    messagesBundled: number,
+    costSavedMessages: number
+  ): Promise<void> {
+    try {
+      if (messagesBundled <= 0 || costSavedMessages <= 0) {
+        return;
+      }
+
+      const prisma = getPrismaClient();
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+
+      const settings = await prisma.notificationSettings.findUnique({
+        where: { organizationId },
+        select: { costPerMessage: true },
+      });
+      const costPerMessage = settings?.costPerMessage || new Prisma.Decimal(3.50);
+      const costSaved = costPerMessage.mul(costSavedMessages);
+
+      await prisma.messageCostTracking.upsert({
+        where: {
+          organizationId_periodYear_periodMonth: {
+            organizationId,
+            periodYear: year,
+            periodMonth: month,
+          },
+        },
+        update: {
+          messagesBundled: { increment: messagesBundled },
+          costSaved: { increment: costSaved },
+          updatedAt: new Date(),
+        },
+        create: {
+          organizationId,
+          periodYear: year,
+          periodMonth: month,
+          messagesBundled,
+          costSaved,
+        },
+      });
+
+      logger.info('[MessageCostTracking] Bundled messages tracked', {
+        organizationId,
+        messagesBundled,
+        costSaved: costSaved.toString(),
+      });
+    } catch (error: any) {
+      logger.error('[MessageCostTracking] Failed to track bundled messages', {
+        organizationId,
+        messagesBundled,
         error: error.message,
       });
     }
@@ -273,6 +337,7 @@ class MessageCostTrackingService {
    */
   async checkSpendingCap(organizationId: string): Promise<{
     isNearCap: boolean;
+    isOverCap: boolean;
     percentageUsed: number;
     currentSpend: number;
     monthlyCap: number | null;
@@ -292,6 +357,7 @@ class MessageCostTrackingService {
       if (!settings || !settings.monthlyCap) {
         return {
           isNearCap: false,
+          isOverCap: false,
           percentageUsed: 0,
           currentSpend: parseFloat(settings?.currentMonthSpend.toFixed(2) || '0'),
           monthlyCap: null,
@@ -303,9 +369,11 @@ class MessageCostTrackingService {
       const cap = parseFloat(settings.monthlyCap.toFixed(2));
       const percentageUsed = (currentSpend / cap) * 100;
       const isNearCap = percentageUsed >= settings.alertThreshold;
+      const isOverCap = percentageUsed >= 100;
 
       return {
         isNearCap,
+        isOverCap,
         percentageUsed: parseFloat(percentageUsed.toFixed(2)),
         currentSpend,
         monthlyCap: cap,
@@ -346,8 +414,8 @@ class MessageCostTrackingService {
   /**
    * Get column name for message type
    */
-  private getMessageTypeColumn(messageType: MessageType): string {
-    const columnMap: Record<MessageType, string> = {
+  private getMessageTypeColumn(messageType: MessageType): string | null {
+    const columnMap: Partial<Record<MessageType, string>> = {
       [MessageType.BOOKING_CONFIRMATION]: 'bookingConfirmationsSent',
       [MessageType.REMINDER]: 'remindersSent',
       [MessageType.FOLLOWUP]: 'followUpsSent',
@@ -362,7 +430,7 @@ class MessageCostTrackingService {
       [MessageType.PAYMENT_REMINDER]: 'paymentRemindersSent',
     };
 
-    return columnMap[messageType];
+    return columnMap[messageType] || null;
   }
 }
 

@@ -18,6 +18,44 @@ const router = Router();
 router.use(authenticate);
 
 /**
+ * GET /api/notification-settings/:organizationId/patient-segments
+ * Get deterministic patient segmentation summary
+ */
+router.get(
+  '/:organizationId/patient-segments',
+  (req, res) => notificationSettingsController.getPatientSegments(req, res)
+);
+
+/**
+ * POST /api/notification-settings/:organizationId/bundle-plan
+ * Create a smart-bundling plan for candidate messages
+ */
+router.post(
+  '/:organizationId/bundle-plan',
+  (req, res) => notificationSettingsController.createBundlePlan(req, res)
+);
+
+/**
+ * POST /api/notification-settings/:organizationId/estimate-message-cost
+ * Estimate one-off or bulk message cost before sending
+ * Body: { recipientCount: number, messageType?: string }
+ */
+router.post(
+  '/:organizationId/estimate-message-cost',
+  (req, res) => notificationSettingsController.estimateMessageCost(req, res)
+);
+
+/**
+ * GET /api/notification-settings/:organizationId/cost-summary
+ * Get tracked monthly cost analytics
+ * Query params: year (optional), month (optional)
+ */
+router.get(
+  '/:organizationId/cost-summary',
+  (req, res) => notificationSettingsController.getCostSummary(req, res)
+);
+
+/**
  * GET /api/notification-settings/:organizationId
  * Get notification settings for organization
  */

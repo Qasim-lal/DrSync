@@ -11,7 +11,7 @@
 
 import whatsappService from './whatsappService';
 import messageCostTrackingService, { MessageType } from './messageCostTrackingService';
-import notificationSettingsService from './notificationSettingsService';
+import notificationSettingsService, { NotificationType } from './notificationSettingsService';
 import logger from '../utils/logger';
 
 interface OutgoingMessage {
@@ -317,7 +317,7 @@ class WhatsAppCostTrackingIntegration {
   async estimateBulkCost(
     organizationId: string,
     recipientCount: number,
-    messageType?: MessageType
+    _messageType?: MessageType
   ): Promise<{
     estimatedCost: number;
     costPerMessage: number;
@@ -358,21 +358,21 @@ class WhatsAppCostTrackingIntegration {
   /**
    * Map message type to notification type for settings check
    */
-  private mapToNotificationType(messageType: MessageType): string {
+  private mapToNotificationType(messageType: MessageType): NotificationType {
     switch (messageType) {
       case MessageType.BOOKING_CONFIRMATION:
-        return 'BOOKING_CONFIRMATION';
+        return NotificationType.BOOKING_CONFIRMATION;
       case MessageType.REMINDER:
-        return 'REMINDER';
+        return NotificationType.REMINDER;
       case MessageType.FOLLOWUP:
-        return 'FOLLOWUP';
+        return NotificationType.FOLLOWUP;
       case MessageType.MEDICATION_REMINDER:
-        return 'MEDICATION_REMINDER';
+        return NotificationType.MEDICATION;
       case MessageType.WELLNESS_CHECK:
-        return 'WELLNESS_CHECK';
+        return NotificationType.WELLNESS;
       case MessageType.OTHER:
       default:
-        return 'OTHER';
+        return NotificationType.REMINDER;
     }
   }
 }

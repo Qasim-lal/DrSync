@@ -228,13 +228,20 @@ export interface LocalUser {
   last_name: string;
   role: UserRole;
   organizationId: string;
+  organization_id?: string;
 }
 
 export function getLocalUser(): LocalUser | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem('user');
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+
+    const user = JSON.parse(raw) as LocalUser;
+    return {
+      ...user,
+      organizationId: user.organizationId || user.organization_id || '',
+    };
   } catch {
     return null;
   }

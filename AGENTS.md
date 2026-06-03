@@ -34,6 +34,8 @@ These rules apply to all agent work in this repository. Treat `WARP.md` as the f
 
 ## Development Rules
 
+- **HARD RULE:** Before writing code for any task, first search for existing services, components, routes, helpers, hooks, schemas, and docs that already solve the same problem.
+- **HARD RULE:** Do not duplicate business logic, API clients, auth/header handling, schemas, UI patterns, or data access paths. Reuse or extend the existing implementation unless there is a documented reason not to.
 - Use Docker-based development for services whenever practical.
 - Use npm as the package manager.
 - Do not commit or expose `.env`, `.env.local`, tokens, private keys, or production credentials.
@@ -66,4 +68,3 @@ These rules apply to all agent work in this repository. Treat `WARP.md` as the f
 - Check worktree status before editing when Git is available.
 - If Git reports dubious ownership, ask before configuring `safe.directory`.
 - Never run destructive Git commands such as `git reset --hard` or checkout/revert user changes unless explicitly requested.
-

@@ -18,9 +18,7 @@ import {
   InformationCircleIcon,
   CheckCircleIcon 
 } from '@heroicons/react/24/outline';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import notificationSettingsService from '@/services/notificationSettingsService';
 
 interface CostEstimate {
   costPerMessage: number;
@@ -43,7 +41,7 @@ interface MessageCostPreviewProps {
 export default function MessageCostPreview({
   organizationId,
   recipientCount,
-  messageType = 'OTHER',
+  messageType = 'reminder',
   onCostCalculated,
   compact = false,
 }: MessageCostPreviewProps) {
@@ -62,30 +60,16 @@ export default function MessageCostPreview({
       setIsLoading(true);
       setError(null);
 
-      // Fetch cost estimate from backend
-      const response = await axios.post(
-        `${API_BASE_URL}/api/messages/estimate-cost`,
-        {
-          organizationId,
-          recipientCount,
-          messageType,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
+      const costData = await notificationSettingsService.estimateMessageCost(
+        organizationId,
+        recipientCount,
+        messageType
       );
 
-      if (response.data.success) {
-        const costData = response.data.data;
-        setEstimate(costData);
-        
-        if (onCostCalculated) {
-          onCostCalculated(costData);
-        }
-      } else {
-        setError(response.data.error || 'Failed to estimate cost');
+      setEstimate(costData);
+
+      if (onCostCalculated) {
+        onCostCalculated(costData);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to estimate cost');

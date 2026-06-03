@@ -8,9 +8,7 @@
  * @date October 20, 2025
  */
 
-import axios from 'axios';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+import apiClient from '@/lib/api/client';
 
 export interface NotificationSettings {
   id: string;
@@ -85,6 +83,81 @@ export interface PresetComparison {
   };
 }
 
+export interface MessageCostEstimate {
+  costPerMessage: number;
+  totalCost: number;
+  currentSpend: number;
+  monthlyCap: number | null;
+  percentageUsed: number;
+  willExceedCap: boolean;
+  remainingBudget: number | null;
+}
+
+export interface MonthlyCostSummary {
+  periodYear: number;
+  periodMonth: number;
+  totalMessagesSent: number;
+  messagesSavedBySettings: number;
+  messagesBundled: number;
+  estimatedCost: number;
+  costSaved: number;
+  breakdown: Array<{
+    messageType: string;
+    count: number;
+    cost: number;
+  }>;
+}
+
+export type PatientSegment = 'NEW' | 'REGULAR' | 'VIP' | 'AT_RISK' | 'INACTIVE';
+
+export interface PatientSegmentResult {
+  patientId: string;
+  patientName: string;
+  phone: string;
+  segment: PatientSegment;
+  appointmentCount: number;
+  completedCount: number;
+  noShowCount: number;
+  cancelledCount: number;
+  lastAppointmentAt: string | null;
+  reason: string;
+}
+
+export interface PatientSegmentationSummary {
+  totalPatients: number;
+  counts: Record<PatientSegment, number>;
+  patients: PatientSegmentResult[];
+}
+
+export interface BundleCandidate {
+  patientId: string;
+  appointmentId?: string;
+  phone: string;
+  messageType: string;
+  body: string;
+  scheduledFor?: string;
+}
+
+export interface BundlePlan {
+  enabled: boolean;
+  bundles: Array<{
+    patientId: string;
+    appointmentId: string | null;
+    phone: string;
+    messageTypes: string[];
+    bodies: string[];
+    bundledBody: string;
+    originalMessageCount: number;
+    bundledMessageCount: number;
+    savedMessages: number;
+  }>;
+  unbundled: BundleCandidate[];
+  originalMessageCount: number;
+  finalMessageCount: number;
+  savedMessages: number;
+  estimatedSavings: number;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -93,23 +166,12 @@ export interface ApiResponse<T> {
 }
 
 class NotificationSettingsService {
-  private getAuthHeaders() {
-    // Get auth token from session/cookie
-    // This would be handled by next-auth or your auth solution
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    return {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-    };
-  }
-
   /**
    * Get notification settings for organization
    */
   async getSettings(organizationId: string): Promise<NotificationSettings> {
-    const response = await axios.get<ApiResponse<NotificationSettings>>(
-      `${API_BASE_URL}/notification-settings/${organizationId}`,
-      { headers: this.getAuthHeaders() }
+    const response = await apiClient.get<ApiResponse<NotificationSettings>>(
+      `/notification-settings/${organizationId}`
     );
 
     if (!response.data.success || !response.data.data) {
@@ -126,10 +188,9 @@ class NotificationSettingsService {
     organizationId: string,
     updates: Partial<NotificationSettings>
   ): Promise<NotificationSettings> {
-    const response = await axios.put<ApiResponse<NotificationSettings>>(
-      `${API_BASE_URL}/notification-settings/${organizationId}`,
-      updates,
-      { headers: this.getAuthHeaders() }
+    const response = await apiClient.put<ApiResponse<NotificationSettings>>(
+      `/notification-settings/${organizationId}`,
+      updates
     );
 
     if (!response.data.success || !response.data.data) {
@@ -146,10 +207,9 @@ class NotificationSettingsService {
     organizationId: string,
     preset: 'BUDGET' | 'RECOMMENDED' | 'PREMIUM'
   ): Promise<NotificationSettings> {
-    const response = await axios.post<ApiResponse<NotificationSettings>>(
-      `${API_BASE_URL}/notification-settings/${organizationId}/preset`,
-      { preset },
-      { headers: this.getAuthHeaders() }
+    const response = await apiClient.post<ApiResponse<NotificationSettings>>(
+      `/notification-settings/${organizationId}/preset`,
+      { preset }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -166,13 +226,11 @@ class NotificationSettingsService {
     organizationId: string,
     appointments?: number
   ): Promise<CostCalculation> {
-    const url = appointments
-      ? `${API_BASE_URL}/notification-settings/${organizationId}/calculate-cost?appointments=${appointments}`
-      : `${API_BASE_URL}/notification-settings/${organizationId}/calculate-cost`;
+    const url = `/notification-settings/${organizationId}/calculate-cost`;
 
-    const response = await axios.get<ApiResponse<CostCalculation>>(
+    const response = await apiClient.get<ApiResponse<CostCalculation>>(
       url,
-      { headers: this.getAuthHeaders() }
+      { params: appointments ? { appointments } : undefined }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -189,13 +247,11 @@ class NotificationSettingsService {
     organizationId: string,
     appointments?: number
   ): Promise<PresetComparison> {
-    const url = appointments
-      ? `${API_BASE_URL}/notification-settings/${organizationId}/compare-presets?appointments=${appointments}`
-      : `${API_BASE_URL}/notification-settings/${organizationId}/compare-presets`;
+    const url = `/notification-settings/${organizationId}/compare-presets`;
 
-    const response = await axios.get<ApiResponse<PresetComparison>>(
+    const response = await apiClient.get<ApiResponse<PresetComparison>>(
       url,
-      { headers: this.getAuthHeaders() }
+      { params: appointments ? { appointments } : undefined }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -213,13 +269,11 @@ class NotificationSettingsService {
     type: string,
     timestamp?: Date
   ): Promise<boolean> {
-    const url = timestamp
-      ? `${API_BASE_URL}/notification-settings/${organizationId}/should-send?type=${type}&timestamp=${timestamp.toISOString()}`
-      : `${API_BASE_URL}/notification-settings/${organizationId}/should-send?type=${type}`;
+    const url = `/notification-settings/${organizationId}/should-send`;
 
-    const response = await axios.get<ApiResponse<{ shouldSend: boolean }>>(
+    const response = await apiClient.get<ApiResponse<{ shouldSend: boolean }>>(
       url,
-      { headers: this.getAuthHeaders() }
+      { params: timestamp ? { type, timestamp: timestamp.toISOString() } : { type } }
     );
 
     if (!response.data.success || !response.data.data) {
@@ -234,9 +288,8 @@ class NotificationSettingsService {
    * Get language preference
    */
   async getLanguagePreference(organizationId: string): Promise<string> {
-    const response = await axios.get<ApiResponse<{ language: string }>>(
-      `${API_BASE_URL}/notification-settings/${organizationId}/language`,
-      { headers: this.getAuthHeaders() }
+    const response = await apiClient.get<ApiResponse<{ language: string }>>(
+      `/notification-settings/${organizationId}/language`
     );
 
     if (!response.data.success || !response.data.data) {
@@ -244,6 +297,80 @@ class NotificationSettingsService {
     }
 
     return response.data.data.language;
+  }
+
+  /**
+   * Estimate one-off or bulk message cost before sending.
+   */
+  async estimateMessageCost(
+    organizationId: string,
+    recipientCount: number,
+    messageType: string = 'reminder'
+  ): Promise<MessageCostEstimate> {
+    const response = await apiClient.post<ApiResponse<MessageCostEstimate>>(
+      `/notification-settings/${organizationId}/estimate-message-cost`,
+      { recipientCount, messageType }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to estimate message cost');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get tracked monthly messaging cost summary.
+   */
+  async getCostSummary(
+    organizationId: string,
+    period?: { year?: number; month?: number }
+  ): Promise<MonthlyCostSummary | null> {
+    const response = await apiClient.get<ApiResponse<MonthlyCostSummary | null>>(
+      `/notification-settings/${organizationId}/cost-summary`,
+      { params: period }
+    );
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to fetch cost summary');
+    }
+
+    return response.data.data ?? null;
+  }
+
+  /**
+   * Get deterministic patient segmentation summary.
+   */
+  async getPatientSegments(organizationId: string): Promise<PatientSegmentationSummary> {
+    const response = await apiClient.get<ApiResponse<PatientSegmentationSummary>>(
+      `/notification-settings/${organizationId}/patient-segments`
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to fetch patient segments');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Create a smart-bundling plan for candidate messages.
+   */
+  async createBundlePlan(
+    organizationId: string,
+    candidates: BundleCandidate[],
+    trackSavings: boolean = false
+  ): Promise<BundlePlan> {
+    const response = await apiClient.post<ApiResponse<BundlePlan>>(
+      `/notification-settings/${organizationId}/bundle-plan`,
+      { candidates, trackSavings }
+    );
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create bundle plan');
+    }
+
+    return response.data.data;
   }
 }
 

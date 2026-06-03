@@ -1,41 +1,64 @@
 /**
- * Notification Settings Admin Page - TASK-040A Phase 2
+ * Notification Settings Admin Page - TASK-040C
  * 
- * Test page for Phase 2 notification settings components:
+ * Production page for notification settings components:
  * - PresetSelector
  * - CostCalculator
  * - PresetComparison
  * - SpendingCapConfig
+ * - CostAnalyticsPanel
  * 
- * @version 1.0
- * @date October 21, 2025
+ * @version 2.0
+ * @date June 3, 2026
  */
 
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Toaster } from 'react-hot-toast';
 import PresetSelector from '@/components/admin/settings/PresetSelector';
 import CostCalculator from '@/components/admin/settings/CostCalculator';
 import PresetComparison from '@/components/admin/settings/PresetComparison';
 import SpendingCapConfig from '@/components/admin/settings/SpendingCapConfig';
+import CostAnalyticsPanel from '@/components/admin/settings/CostAnalyticsPanel';
+import PatientSegmentationPanel from '@/components/admin/settings/PatientSegmentationPanel';
+import SmartBundlingPanel from '@/components/admin/settings/SmartBundlingPanel';
+import { getLocalUser } from '@/lib/api/dashboard';
 import notificationSettingsService from '@/services/notificationSettingsService';
 
 export default function NotificationSettingsPage() {
-  const [organizationId, setOrganizationId] = useState<string>('test-org-phase2-settings');
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadSettings();
-  }, [organizationId]);
+    const user = getLocalUser();
+    const resolvedOrganizationId = user?.organizationId;
 
-  const loadSettings = async () => {
+    if (!resolvedOrganizationId) {
+      setError('No organization is associated with the current user session.');
+      setIsLoading(false);
+      return;
+    }
+
+    setOrganizationId(resolvedOrganizationId);
+  }, []);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadSettings(organizationId);
+    }
+  }, [organizationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadSettings = async (targetOrganizationId: string = organizationId || '') => {
+    if (!targetOrganizationId) {
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
-      const data = await notificationSettingsService.getSettings(organizationId);
+      const data = await notificationSettingsService.getSettings(targetOrganizationId);
       setSettings(data);
     } catch (err: any) {
       setError(err.message || 'Failed to load settings');
@@ -54,8 +77,6 @@ export default function NotificationSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <Toaster position="top-right" />
-      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -65,24 +86,6 @@ export default function NotificationSettingsPage() {
           <p className="mt-2 text-sm text-gray-600">
             Manage your notification preferences and control messaging costs
           </p>
-          
-          {/* Organization Selector for Testing */}
-          <div className="mt-4 max-w-md">
-            <label htmlFor="orgId" className="block text-sm font-medium text-gray-700 mb-1">
-              Test Organization ID:
-            </label>
-            <input
-              type="text"
-              id="orgId"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              placeholder="Enter organization ID"
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              Default: test-org-dr-demo (from test data)
-            </p>
-          </div>
         </div>
 
         {/* Loading State */}
@@ -105,7 +108,7 @@ export default function NotificationSettingsPage() {
                 <h3 className="text-sm font-medium text-red-800">Error Loading Settings</h3>
                 <p className="mt-1 text-sm text-red-700">{error}</p>
                 <button
-                  onClick={loadSettings}
+                  onClick={() => loadSettings()}
                   className="mt-2 text-sm font-medium text-red-600 hover:text-red-500"
                 >
                   Try Again
@@ -116,7 +119,7 @@ export default function NotificationSettingsPage() {
         )}
 
         {/* Components */}
-        {!isLoading && settings && (
+        {!isLoading && settings && organizationId && (
           <div className="space-y-8">
             {/* Preset Selector */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -154,17 +157,19 @@ export default function NotificationSettingsPage() {
               />
             </div>
 
-            {/* Debug Info */}
-            <div className="bg-gray-900 rounded-lg p-6 text-white">
-              <h3 className="text-lg font-medium mb-4">Debug Information</h3>
-              <div className="space-y-2 text-sm font-mono">
-                <div><span className="text-gray-400">Organization ID:</span> {organizationId}</div>
-                <div><span className="text-gray-400">Current Preset:</span> {settings.presetMode}</div>
-                <div><span className="text-gray-400">Monthly Appointments:</span> {settings.averageMonthlyAppointments || 'Not set'}</div>
-                <div><span className="text-gray-400">Cost per Message:</span> PKR {settings.costPerMessage}</div>
-                <div><span className="text-gray-400">Monthly Cap:</span> {settings.monthlyCap ? `PKR ${settings.monthlyCap}` : 'Not set'}</div>
-                <div><span className="text-gray-400">Current Spend:</span> PKR {settings.currentMonthSpend}</div>
-              </div>
+            {/* Cost Analytics */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <CostAnalyticsPanel organizationId={organizationId} />
+            </div>
+
+            {/* Patient Segmentation */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <PatientSegmentationPanel organizationId={organizationId} />
+            </div>
+
+            {/* Smart Bundling */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <SmartBundlingPanel organizationId={organizationId} />
             </div>
           </div>
         )}

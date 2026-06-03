@@ -16,19 +16,47 @@
 
 import { Request, Response } from 'express';
 import notificationSettingsService, { NotificationType } from '../services/notificationSettingsService';
+import messageCostTrackingService, { MessageType } from '../services/messageCostTrackingService';
+import patientSegmentationService from '../services/patientSegmentationService';
+import smartMessageBundlingService, { BundleCandidate } from '../services/smartMessageBundlingService';
+import whatsappCostTrackingIntegration from '../services/whatsappCostTrackingIntegration';
 import logger from '../utils/logger';
 
 export class NotificationSettingsController {
+  private getOrganizationId(req: Request): string {
+    const { organizationId } = req.params;
+    if (!organizationId) {
+      throw new Error('Missing organizationId parameter');
+    }
+
+    return organizationId;
+  }
+
+  private canAccessOrganization(req: Request, organizationId: string): boolean {
+    const userOrganizationId = req.user
+      ? ((req.user as any).organizationId || req.user.organization_id)
+      : undefined;
+
+    return !!req.user && (
+      userOrganizationId === organizationId ||
+      req.user.role === 'SUPER_ADMIN'
+    );
+  }
+
+  private isSettingsAdmin(req: Request): boolean {
+    return req.user?.role === 'ORG_ADMIN' || req.user?.role === 'SUPER_ADMIN';
+  }
+
   /**
    * GET /api/notification-settings/:organizationId
    * Get notification settings for organization
    */
   async getSettings(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       
       // Authorization check (user belongs to org)
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -38,7 +66,7 @@ export class NotificationSettingsController {
       
       logger.info('[NotificationSettingsController] Fetching settings', {
         organizationId,
-        userId: req.user.id,
+        userId: req.user!.id,
       });
       
       const settings = await notificationSettingsService.getSettings(organizationId);
@@ -67,10 +95,10 @@ export class NotificationSettingsController {
    */
   async updateSettings(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -78,8 +106,8 @@ export class NotificationSettingsController {
         return;
       }
       
-      // Only ORG_ADMIN or ADMIN can update settings
-      if (req.user.role !== 'ORG_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+      // Only organization or super admins can update settings
+      if (!this.isSettingsAdmin(req)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - Only administrators can update notification settings' 
@@ -89,7 +117,7 @@ export class NotificationSettingsController {
       
       logger.info('[NotificationSettingsController] Updating settings', {
         organizationId,
-        userId: req.user.id,
+        userId: req.user!.id,
         updates: Object.keys(req.body),
       });
       
@@ -124,11 +152,11 @@ export class NotificationSettingsController {
    */
   async shouldSendNotification(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       const { type, timestamp } = req.query;
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -204,10 +232,10 @@ export class NotificationSettingsController {
    */
   async getLanguagePreference(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -246,11 +274,11 @@ export class NotificationSettingsController {
    */
   async applyPreset(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       const { preset } = req.body;
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -258,8 +286,8 @@ export class NotificationSettingsController {
         return;
       }
       
-      // Only ORG_ADMIN or ADMIN can apply presets
-      if (req.user.role !== 'ORG_ADMIN' && req.user.role !== 'ADMIN' && req.user.role !== 'SUPER_ADMIN') {
+      // Only organization or super admins can apply presets
+      if (!this.isSettingsAdmin(req)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - Only administrators can apply presets' 
@@ -279,7 +307,7 @@ export class NotificationSettingsController {
       logger.info('[NotificationSettingsController] Applying preset', {
         organizationId,
         preset,
-        userId: req.user.id,
+        userId: req.user!.id,
       });
       
       const updated = await notificationSettingsService.applyPreset(organizationId, preset);
@@ -310,11 +338,11 @@ export class NotificationSettingsController {
    */
   async calculateCost(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       const { appointments } = req.query;
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -353,11 +381,11 @@ export class NotificationSettingsController {
    */
   async comparePresets(req: Request, res: Response): Promise<void> {
     try {
-      const { organizationId } = req.params;
+      const organizationId = this.getOrganizationId(req);
       const { appointments } = req.query;
       
       // Authorization check
-      if (!req.user || req.user.organizationId !== organizationId) {
+      if (!this.canAccessOrganization(req, organizationId)) {
         res.status(403).json({ 
           success: false,
           error: 'Forbidden - You do not have access to this organization' 
@@ -387,6 +415,251 @@ export class NotificationSettingsController {
         error: 'Failed to compare presets' 
       });
     }
+  }
+
+  /**
+   * POST /api/notification-settings/:organizationId/estimate-message-cost
+   * Estimate one-off or bulk send cost before executing a message send.
+   */
+  async estimateMessageCost(req: Request, res: Response): Promise<void> {
+    try {
+      const organizationId = this.getOrganizationId(req);
+      const { recipientCount, messageType } = req.body;
+
+      if (!this.canAccessOrganization(req, organizationId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden - You do not have access to this organization',
+        });
+        return;
+      }
+
+      const parsedRecipientCount = Number(recipientCount);
+      if (!Number.isInteger(parsedRecipientCount) || parsedRecipientCount <= 0) {
+        res.status(400).json({
+          success: false,
+          error: 'recipientCount must be a positive integer',
+        });
+        return;
+      }
+
+      let normalizedMessageType: MessageType | undefined;
+      if (messageType !== undefined) {
+        if (typeof messageType !== 'string') {
+          res.status(400).json({
+            success: false,
+            error: 'messageType must be a string when provided',
+          });
+          return;
+        }
+
+        const candidate = messageType.toLowerCase() as MessageType;
+        if (!Object.values(MessageType).includes(candidate)) {
+          res.status(400).json({
+            success: false,
+            error: `Invalid messageType. Must be one of: ${Object.values(MessageType).join(', ')}`,
+          });
+          return;
+        }
+
+        normalizedMessageType = candidate;
+      }
+
+      const estimate = await whatsappCostTrackingIntegration.estimateBulkCost(
+        organizationId,
+        parsedRecipientCount,
+        normalizedMessageType
+      );
+      const capStatus = await messageCostTrackingService.checkSpendingCap(organizationId);
+      const totalCost = estimate.estimatedCost;
+      const projectedSpend = capStatus.currentSpend + totalCost;
+      const percentageUsed = capStatus.monthlyCap
+        ? (projectedSpend / capStatus.monthlyCap) * 100
+        : 0;
+
+      res.json({
+        success: true,
+        data: {
+          costPerMessage: estimate.costPerMessage,
+          totalCost,
+          currentSpend: capStatus.currentSpend,
+          monthlyCap: capStatus.monthlyCap,
+          percentageUsed: Number(percentageUsed.toFixed(2)),
+          willExceedCap: estimate.willExceedCap,
+          remainingBudget: estimate.remainingBudget,
+        },
+      });
+    } catch (error: any) {
+      logger.error('[NotificationSettingsController] Estimate message cost error', {
+        organizationId: req.params.organizationId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to estimate message cost',
+      });
+    }
+  }
+
+  /**
+   * GET /api/notification-settings/:organizationId/cost-summary
+   * Get tracked monthly cost analytics for the organization.
+   */
+  async getCostSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const organizationId = this.getOrganizationId(req);
+      const { year, month } = req.query;
+
+      if (!this.canAccessOrganization(req, organizationId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden - You do not have access to this organization',
+        });
+        return;
+      }
+
+      const parsedYear = year ? Number(year) : undefined;
+      const parsedMonth = month ? Number(month) : undefined;
+
+      if (
+        (parsedYear !== undefined && (!Number.isInteger(parsedYear) || parsedYear < 2000)) ||
+        (parsedMonth !== undefined && (!Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12))
+      ) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid year or month query parameter',
+        });
+        return;
+      }
+
+      const summary = await messageCostTrackingService.getMonthlySummary(
+        organizationId,
+        parsedYear,
+        parsedMonth
+      );
+
+      res.json({
+        success: true,
+        data: summary,
+      });
+    } catch (error: any) {
+      logger.error('[NotificationSettingsController] Cost summary error', {
+        organizationId: req.params.organizationId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch cost summary',
+      });
+    }
+  }
+
+  /**
+   * GET /api/notification-settings/:organizationId/patient-segments
+   * Get deterministic patient segmentation summary.
+   */
+  async getPatientSegments(req: Request, res: Response): Promise<void> {
+    try {
+      const organizationId = this.getOrganizationId(req);
+
+      if (!this.canAccessOrganization(req, organizationId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden - You do not have access to this organization',
+        });
+        return;
+      }
+
+      const summary = await patientSegmentationService.getSegmentationSummary(organizationId);
+
+      res.json({
+        success: true,
+        data: summary,
+      });
+    } catch (error: any) {
+      logger.error('[NotificationSettingsController] Patient segments error', {
+        organizationId: req.params.organizationId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch patient segments',
+      });
+    }
+  }
+
+  /**
+   * POST /api/notification-settings/:organizationId/bundle-plan
+   * Create a safe smart-bundling plan for candidate messages.
+   */
+  async createBundlePlan(req: Request, res: Response): Promise<void> {
+    try {
+      const organizationId = this.getOrganizationId(req);
+      const { candidates, trackSavings } = req.body;
+
+      if (!this.canAccessOrganization(req, organizationId)) {
+        res.status(403).json({
+          success: false,
+          error: 'Forbidden - You do not have access to this organization',
+        });
+        return;
+      }
+
+      if (!Array.isArray(candidates)) {
+        res.status(400).json({
+          success: false,
+          error: 'candidates must be an array',
+        });
+        return;
+      }
+
+      const normalizedCandidates = this.normalizeBundleCandidates(candidates);
+      const plan = await smartMessageBundlingService.createBundlePlan(
+        organizationId,
+        normalizedCandidates,
+        { trackSavings: trackSavings === true }
+      );
+
+      res.json({
+        success: true,
+        data: plan,
+      });
+    } catch (error: any) {
+      logger.error('[NotificationSettingsController] Bundle plan error', {
+        organizationId: req.params.organizationId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to create bundle plan',
+      });
+    }
+  }
+
+  private normalizeBundleCandidates(candidates: Array<Record<string, unknown>>): BundleCandidate[] {
+    return candidates.map((candidate, index) => {
+      const messageType = String(candidate.messageType || '').toLowerCase() as MessageType;
+      if (!Object.values(MessageType).includes(messageType)) {
+        throw new Error(`Invalid messageType for candidate ${index + 1}`);
+      }
+
+      if (!candidate.patientId || !candidate.phone || !candidate.body) {
+        throw new Error(`candidate ${index + 1} requires patientId, phone, and body`);
+      }
+
+      return {
+        patientId: String(candidate.patientId),
+        ...(candidate.appointmentId ? { appointmentId: String(candidate.appointmentId) } : {}),
+        phone: String(candidate.phone),
+        messageType,
+        body: String(candidate.body),
+        ...(candidate.scheduledFor ? { scheduledFor: String(candidate.scheduledFor) } : {}),
+      };
+    });
   }
 }
 

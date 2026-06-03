@@ -21,6 +21,7 @@ export interface TokenPair {
 }
 
 export interface AuthUser extends Omit<User, 'password'> {
+  organizationId: string;
   organization: {
     id: string;
     name: string;
@@ -214,7 +215,7 @@ export class AuthService {
       const { password_hash: _, ...userWithoutPassword } = user;
       
       logger.info(`User authenticated successfully: ${email}`);
-      return userWithoutPassword as AuthUser;
+      return userWithoutPassword as unknown as AuthUser;
     } catch (error) {
       logger.error('Authentication error:', error);
       throw new Error('Authentication failed');
@@ -246,7 +247,7 @@ export class AuthService {
 
       // Remove password from returned user object
       const { password_hash: _, ...userWithoutPassword } = user;
-      return userWithoutPassword as AuthUser;
+      return userWithoutPassword as unknown as AuthUser;
     } catch (error) {
       logger.error('Error fetching user by ID:', error);
       return null;
