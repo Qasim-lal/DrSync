@@ -104,6 +104,7 @@ Verification status:
 - Backend full build was run in Docker with `docker compose -f docker-compose.dev.yml exec -T backend npm run build`; it still fails because of unrelated existing TypeScript/schema drift in billing, provider, support, communication, reminder, auth route, system operations, and WhatsApp service files.
 - The touched TASK-040C controller/service files are no longer present in the backend build error list after the final controller/auth alias adjustments.
 - VPS deploy follow-up on June 5, 2026 found and fixed runtime configuration issues outside TASK-040C: WhatsApp startup now uses Prisma camelCase fields, Bull queue services reuse authenticated Redis config, Express trusts the reverse proxy for rate limiting, production frontend Docker uses the standalone Next server, and the obsolete production Compose `version` warning was removed.
+- VPS browser follow-up on June 5, 2026 found that the organization dashboard sidebar did not expose the implemented TASK-040C notification settings page. Added `/dashboard/notification-settings` as a no-duplication route that reuses the existing `/admin/notification-settings` page, and added a dashboard sidebar link. The same smoke check also found `/api/providers` failing because the PostgreSQL fallback queried removed `Provider.user` and `Provider.googleSheetsRowId` fields; corrected the fallback to match the current Prisma schema.
 
 ## 6. Main Risks
 

@@ -96,14 +96,6 @@ export const getProviders = asyncHandler(async (req: Request, res: Response): Pr
         prisma.provider.findMany({
           where: whereClause,
           include: {
-            user: {
-              select: {
-                id: true,
-                email: true,
-                role: true,
-                isActive: true
-              }
-            },
             _count: {
               select: {
                 appointments: true
@@ -220,17 +212,8 @@ export const createProvider = asyncHandler(async (req: Request, res: Response): 
       data: {
         ...providerData,
         id: sheetsResult.providerId,
-        googleSheetsRowId: sheetsResult.providerId // Link to Google Sheets record
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            isActive: true
-          }
-        },
         _count: {
           select: {
             appointments: true
@@ -310,18 +293,6 @@ export const getProvider = asyncHandler(async (req: Request, res: Response): Pro
           organizationId
         },
       include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            isActive: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            avatar: true
-          }
-        },
         appointments: {
           where: {
             scheduledAt: {
@@ -433,14 +404,6 @@ export const updateProvider = asyncHandler(async (req: Request, res: Response): 
       where: { id },
       data: updateData,
       include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            isActive: true
-          }
-        },
         _count: {
           select: {
             appointments: true
