@@ -103,6 +103,7 @@ Verification status:
 - Frontend type-check passed in Docker with `docker compose -f docker-compose.dev.yml exec -T frontend npm run type-check`.
 - Backend full build was run in Docker with `docker compose -f docker-compose.dev.yml exec -T backend npm run build`; it still fails because of unrelated existing TypeScript/schema drift in billing, provider, support, communication, reminder, auth route, system operations, and WhatsApp service files.
 - The touched TASK-040C controller/service files are no longer present in the backend build error list after the final controller/auth alias adjustments.
+- VPS deploy follow-up on June 5, 2026 found and fixed runtime configuration issues outside TASK-040C: WhatsApp startup now uses Prisma camelCase fields, Bull queue services reuse authenticated Redis config, Express trusts the reverse proxy for rate limiting, production frontend Docker uses the standalone Next server, and the obsolete production Compose `version` warning was removed.
 
 ## 6. Main Risks
 

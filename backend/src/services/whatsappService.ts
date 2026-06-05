@@ -32,6 +32,7 @@ import googleSheetsService from './googleSheetsService';
 import { decryptData } from '../utils/encryption';
 import Queue, { Job } from 'bull';
 import Redis from 'ioredis';
+import { getRedisConnectionConfig } from '../config/redis';
 // import sheetsSyncService from './sheetsSyncService';
 
 // Types for WhatsApp operations
@@ -104,11 +105,14 @@ class WhatsAppService {
   private initializationPromise: Promise<void>;
   
   constructor() {
+    const redisConfig = getRedisConnectionConfig();
+
     // Initialize Redis for rate limiting
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    this.redis = new Redis(redisConfig);
     
     // Initialize Bull Queue for message queueing
-    this.messageQueue = new Queue('whatsapp-messages', process.env.REDIS_URL || 'redis://localhost:6379', {
+    this.messageQueue = new Queue('whatsapp-messages', {
+      redis: redisConfig,
       defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -156,15 +160,15 @@ class WhatsAppService {
       const prisma = getPrismaClient();
       const organizations = await prisma.organization.findMany({
         where: {
-          is_active: true,
-          whatsapp_credentials: { not: Prisma.JsonNull },
-          whatsapp_phone_number: { not: null }
+          isActive: true,
+          whatsappCredentials: { not: Prisma.JsonNull },
+          whatsappPhoneNumber: { not: null }
         },
         select: {
           id: true,
           name: true,
-          whatsapp_phone_number: true,
-          whatsapp_credentials: true
+          whatsappPhoneNumber: true,
+          whatsappCredentials: true
           // whatsappWebhookUrl: true // Field exists in schema but not in select type
         }
       });
@@ -174,9 +178,9 @@ class WhatsAppService {
       this.phoneToOrgMapping.clear();
 
       for (const org of organizations) {
-        await this.initializeClient(org.id, org.whatsapp_credentials as any);
+        await this.initializeClient(org.id, org.whatsappCredentials as any);
         // Phone mapping is set inside initializeClient to ensure atomicity
-        logger.info(`Initialized WhatsApp client for ${org.name} (${org.whatsapp_phone_number})`);
+        logger.info(`Initialized WhatsApp client for ${org.name} (${org.whatsappPhoneNumber})`);
       }
 
       logger.info(`WhatsApp service initialized with ${organizations.length} clients`);
@@ -195,10 +199,10 @@ class WhatsAppService {
       const prisma = getPrismaClient();
       const organization = await prisma.organization.findUnique({
         where: { id: organizationId },
-        select: { whatsapp_phone_number: true, name: true }
+        select: { whatsappPhoneNumber: true, name: true }
       });
 
-      if (!organization || !organization.whatsapp_phone_number) {
+      if (!organization || !organization.whatsappPhoneNumber) {
         throw new Error('Organization not found or WhatsApp phone number not configured');
       }
 
@@ -207,14 +211,14 @@ class WhatsAppService {
 
       const client: WhatsAppClient = {
         organizationId,
-        phoneNumber: organization.whatsapp_phone_number,
+        phoneNumber: organization.whatsappPhoneNumber,
         credentials: decryptedCredentials,
-        is_active: true,
+        isActive: true,
         lastActivityAt: new Date()
       };
 
       this.clients.set(organizationId, client);
-      this.phoneToOrgMapping.set(organization.whatsapp_phone_number, organizationId);
+      this.phoneToOrgMapping.set(organization.whatsappPhoneNumber, organizationId);
 
       logger.info(`WhatsApp client initialized for organization ${organizationId}`);
 
@@ -337,7 +341,7 @@ class WhatsAppService {
         try {
           const prisma = getPrismaClient();
           const org = await prisma.organization.findFirst({
-            where: { whatsapp_credentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
+            where: { whatsappCredentials: { path: ['phoneNumberId'], equals: businessPhoneId } },
             select: { id: true }
           });
           if (org) return org.id;

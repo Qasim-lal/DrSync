@@ -22,21 +22,11 @@ import type { Job, JobOptions, Queue as QueueType } from 'bull';
 import { logger } from '../utils/logger';
 import getPrismaClient from './prisma';
 import { ReminderType, ReminderStatus, ReminderTrigger } from '@prisma/client';
-
-// Redis configuration from environment
-const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || '6379');
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD;
+import { getRedisConnectionConfig } from '../config/redis';
 
 // Queue configuration
 const QUEUE_OPTIONS = {
-  redis: {
-    host: REDIS_HOST,
-    port: REDIS_PORT,
-    ...(REDIS_PASSWORD && { password: REDIS_PASSWORD }),
-    maxRetriesPerRequest: null,
-    enableReadyCheck: false
-  },
+  redis: getRedisConnectionConfig(),
   defaultJobOptions: {
     attempts: 3,
     backoff: {

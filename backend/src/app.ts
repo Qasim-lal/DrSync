@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -5,7 +6,6 @@ import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
@@ -34,10 +34,8 @@ import whatsappMetricsRoutes from './routes/whatsappMetricsRoutes';
 import notificationSettingsRoutes from './routes/notificationSettings';
 import reminderRoutes from './routes/reminderRoutes';
 
-// Load environment variables
-dotenv.config();
-
 const app = express();
+app.set('trust proxy', 1);
 
 // Rate limiting
 const limiter = rateLimit({

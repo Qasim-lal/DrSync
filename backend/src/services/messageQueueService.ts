@@ -20,6 +20,7 @@
 import Queue, { Job, JobOptions } from 'bull';
 import Redis from 'ioredis';
 import logger from '../utils/logger';
+import { getRedisConnectionConfig } from '../config/redis';
 
 // Message job data structure
 export interface MessageJobData {
@@ -68,22 +69,7 @@ class MessageQueueService {
   private isProcessing = false;
 
   constructor() {
-    // Build Redis URL with password if available
-    const redisPassword = process.env.REDIS_PASSWORD;
-    const redisHost = process.env.REDIS_HOST || 'localhost';
-    const redisPort = process.env.REDIS_PORT || '6379';
-    
-    const redisConfig: any = {
-      host: redisHost,
-      port: parseInt(redisPort),
-      maxRetriesPerRequest: null,
-      enableReadyCheck: false,
-    };
-
-    // Add password only if it exists
-    if (redisPassword) {
-      redisConfig.password = redisPassword;
-    }
+    const redisConfig = getRedisConnectionConfig();
 
     // Initialize Redis client
     this.redis = new Redis(redisConfig);
