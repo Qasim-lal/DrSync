@@ -2006,6 +2006,12 @@
 - ✅ **Billing & Subscription System:** Complete payment processing with Pakistani & international gateways
 - ✅ **Data Migration & Rollback System:** Enterprise-grade migration and emergency recovery capabilities
 
+**Architecture Follow-Up References (June 5, 2026):**
+- **Provider/User Architecture Decision:** Accepted and documented in `docs/architecture/PROVIDER_USER_ARCHITECTURE_DECISION.md`. Provider and User remain separate; Provider may optionally link one-to-one to a dashboard User; appointments continue to reference `providerId`; RBAC continues to use `User.role`.
+- **Provider/User Linking Implementation Plan:** Planned in `docs/tasks/PROVIDER-USER-LINKING/IMPLEMENTATION_PLAN.md`. This is a focused architecture implementation follow-up, not a new numbered phase task yet, to avoid distorting the existing tracker counts until scope is approved for active development.
+- **Rules Review Conflict Report:** Recorded in `docs/tasks/RULES_REVIEW_CONFLICT_REPORT.md`; `AGENTS.md` now reflects the current architecture and precedence rules.
+- **VPS Verification Pending:** Latest pushed changes for `/dashboard/notification-settings` visibility and `/api/providers` fallback cleanup still need VPS pull/rebuild/browser verification.
+
 **🚀 NEXT PRIORITIES (Phase 2.5 Almost Complete - 83%):**
 1. ✅ Phase 2 Complete: All backend systems operational including billing system
 2. ✅ Organization Registration System (TASK-035): 100% complete with 19/19 tests passing
@@ -2043,6 +2049,7 @@
 |||| 2.13 | Oct 16, 2025 | Technical Lead | TASK-040A STATUS CORRECTED: Updated to reflect accurate implementation status - specification document complete (1,485 lines) but ZERO code implementation. Renamed document to `TASK-040A_Notification_Settings_Feature_Spec.md`. Updated Pre-Implementation Checklist to reflect this clarification. |
 
 |||| 2.14 | Dec 4, 2025 | Technical Lead | TASK-042 100% COMPLETE: Automated reminder & follow-up system fully implemented (7 services, 12 API endpoints, 3,200+ lines). Complete features: Bull Queue with Redis, bilingual templates, TASK-040A integration, hourly reminder scheduler, daily follow-up scheduler, configurable organization-specific timing (same-day, next-day, no-show). System verified with health checks passing. Phase 3 progress: 71% complete (5/7 tasks). |
+|||| 2.15 | June 5, 2026 | Codex | Added architecture follow-up references for Provider/User decision, Provider/User linking implementation plan, rules conflict report, and pending VPS verification for latest dashboard/provider changes. |
 
-**Last Updated:** December 4, 2025 (v2.14 - TASK-042 automated reminders 100% complete with configurable follow-up timing)
+**Last Updated:** June 5, 2026 (v2.15 - Provider/User architecture follow-up references and VPS verification note)
 
