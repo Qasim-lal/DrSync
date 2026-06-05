@@ -14,6 +14,28 @@ interface HealthStatus {
   environment: string;
 }
 
+const getApiBaseUrl = () => {
+  const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (configuredApiUrl) {
+    return configuredApiUrl.replace(/\/api$/, '');
+  }
+
+  if (typeof window === 'undefined') {
+    return 'http://localhost:3001';
+  }
+
+  const { hostname, protocol } = window.location;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  if (isLocalhost) {
+    return `http://${hostname}:3001`;
+  }
+
+  const rootDomain = hostname.replace(/^www\./, '');
+  return `${protocol}//api.${rootDomain}`;
+};
+
+const getApiDocsUrl = () => `${getApiBaseUrl()}/api/docs`;
+
 export default function HomePage() {
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +43,7 @@ export default function HomePage() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const apiUrl = (process.env.NEXT_PUBLIC_API_URL || `http://${window.location.hostname}:3001/api`).replace(/\/api$/, '');
-        const response = await fetch(`${apiUrl}/health`);
+        const response = await fetch(`${getApiBaseUrl()}/health`);
         const data = await response.json();
         setHealthStatus(data.data);
       } catch (error) {
@@ -233,14 +254,14 @@ export default function HomePage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-4xl mx-auto">
             <Link 
-              href={`${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '')}/health`}
+              href={`${getApiBaseUrl()}/health`}
               target="_blank"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >
               API Health Check
             </Link>
             <Link 
-              href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/docs`}
+              href={getApiDocsUrl()}
               target="_blank"
               className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center block"
             >

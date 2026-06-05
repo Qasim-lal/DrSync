@@ -61,6 +61,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://${SERVER_IP}:3001/api}
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-http://${SERVER_IP}:3000}
     container_name: drsync_frontend
     restart: always
     environment:
