@@ -3,6 +3,10 @@ import { logger } from '../utils/logger';
 
 let redisClient: RedisClientType | null = null;
 
+export const getRedisPassword = (): string | undefined => {
+  return process.env.REDIS_PASSWORD_RAW || process.env.REDIS_PASSWORD || undefined;
+};
+
 export const getRedisUrl = (): string => {
   if (process.env.REDIS_URL) {
     return process.env.REDIS_URL;
@@ -10,15 +14,15 @@ export const getRedisUrl = (): string => {
 
   const host = process.env.REDIS_HOST || 'localhost';
   const port = process.env.REDIS_PORT || '6379';
-  const password = process.env.REDIS_PASSWORD;
+  const password = getRedisPassword();
 
   return password
-    ? `redis://:${password}@${host}:${port}`
+    ? `redis://:${encodeURIComponent(password)}@${host}:${port}`
     : `redis://${host}:${port}`;
 };
 
 export const getRedisConnectionConfig = (): any => {
-  const password = process.env.REDIS_PASSWORD;
+  const password = getRedisPassword();
 
   return {
     host: process.env.REDIS_HOST || 'localhost',
@@ -39,8 +43,9 @@ export const connectRedis = async (): Promise<RedisClientType> => {
       url: getRedisUrl(),
     };
     
-    if (process.env.REDIS_PASSWORD) {
-      clientConfig.password = process.env.REDIS_PASSWORD;
+    const redisPassword = getRedisPassword();
+    if (redisPassword) {
+      clientConfig.password = redisPassword;
     }
     
     redisClient = createClient(clientConfig);

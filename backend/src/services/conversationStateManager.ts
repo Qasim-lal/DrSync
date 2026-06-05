@@ -18,6 +18,7 @@
 import Redis from 'ioredis';
 import { Intent } from './intentRecognitionService';
 import logger from '../utils/logger';
+import { getRedisConnectionConfig } from '../config/redis';
 
 // Conversation turn (for history)
 export interface ConversationTurn {
@@ -50,16 +51,7 @@ class ConversationStateManager {
   private readonly MAX_HISTORY = 10; // Keep last 10 turns
 
   constructor() {
-    const redisConfig: any = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-    };
-
-    if (process.env.REDIS_PASSWORD) {
-      redisConfig.password = process.env.REDIS_PASSWORD;
-    }
-
-    this.redis = new Redis(redisConfig);
+    this.redis = new Redis(getRedisConnectionConfig());
     logger.info('[ConversationStateManager] Service initialized');
   }
 

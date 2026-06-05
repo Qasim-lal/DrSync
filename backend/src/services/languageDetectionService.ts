@@ -22,6 +22,7 @@
 import Redis from 'ioredis';
 import logger from '../utils/logger';
 import getPrismaClient from './prisma';
+import { getRedisConnectionConfig } from '../config/redis';
 
 // Language detection result
 export interface LanguageDetectionResult {
@@ -179,16 +180,7 @@ class LanguageDetectionService {
   ];
 
   constructor() {
-    const redisConfig: any = {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-    };
-
-    if (process.env.REDIS_PASSWORD) {
-      redisConfig.password = process.env.REDIS_PASSWORD;
-    }
-
-    this.redis = new Redis(redisConfig);
+    this.redis = new Redis(getRedisConnectionConfig());
     logger.info('[LanguageDetection] Service initialized');
   }
 
