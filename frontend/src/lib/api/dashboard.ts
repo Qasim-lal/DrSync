@@ -86,6 +86,17 @@ export interface PaginatedResponse<T> {
   };
 }
 
+type NestedPaginatedResponse<T> = {
+  success: boolean;
+  data?: T[] | {
+    patients?: T[];
+    appointments?: T[];
+    providers?: T[];
+    pagination?: PaginatedResponse<T>['pagination'];
+  };
+  pagination?: PaginatedResponse<T>['pagination'];
+};
+
 export interface DashboardStats {
   totalPatients: number;
   totalAppointments: number;
@@ -130,6 +141,27 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return data;
 }
 
+function normalizePaginatedResponse<T>(
+  response: NestedPaginatedResponse<T>,
+  collectionKey: 'patients' | 'appointments' | 'providers'
+): PaginatedResponse<T> {
+  if (Array.isArray(response.data)) {
+    return {
+      success: response.success,
+      data: response.data,
+      pagination: response.pagination,
+    };
+  }
+
+  const nestedData = response.data?.[collectionKey];
+
+  return {
+    success: response.success,
+    data: Array.isArray(nestedData) ? nestedData : [],
+    pagination: response.data?.pagination || response.pagination,
+  };
+}
+
 // ─── Patients ─────────────────────────────────────────────────────────────────
 
 export async function getPatients(params?: {
@@ -139,7 +171,8 @@ export async function getPatients(params?: {
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
   if (params?.search) query.set('search', params.search);
-  return apiFetch(`/api/patients?${query.toString()}`);
+  const response = await apiFetch<NestedPaginatedResponse<Patient>>(`/api/patients?${query.toString()}`);
+  return normalizePaginatedResponse(response, 'patients');
 }
 
 export async function createPatient(data: Partial<Patient>): Promise<{ success: boolean; data: Patient }> {
@@ -168,7 +201,8 @@ export async function getAppointments(params?: {
   if (params?.limit) query.set('limit', String(params.limit));
   if (params?.status) query.set('status', params.status);
   if (params?.date) query.set('date', params.date);
-  return apiFetch(`/api/appointments?${query.toString()}`);
+  const response = await apiFetch<NestedPaginatedResponse<Appointment>>(`/api/appointments?${query.toString()}`);
+  return normalizePaginatedResponse(response, 'appointments');
 }
 
 export async function createAppointment(data: Partial<Appointment>): Promise<{ success: boolean; data: Appointment }> {
@@ -190,7 +224,8 @@ export async function confirmAppointment(id: string): Promise<{ success: boolean
 // ─── Providers ────────────────────────────────────────────────────────────────
 
 export async function getProviders(): Promise<{ success: boolean; data: Provider[] }> {
-  return apiFetch('/api/providers');
+  const response = await apiFetch<NestedPaginatedResponse<Provider>>('/api/providers');
+  return normalizePaginatedResponse(response, 'providers');
 }
 
 export async function createProvider(data: Partial<Provider>): Promise<{ success: boolean; data: Provider }> {
