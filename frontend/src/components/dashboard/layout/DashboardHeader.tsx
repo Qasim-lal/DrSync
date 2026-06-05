@@ -19,7 +19,7 @@ export default function DashboardHeader() {
               <p className="text-sm font-medium text-gray-900">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="text-xs text-gray-500">{user.role.replace('_', ' ')}</p>
+              <p className="text-xs text-gray-500">{user.role?.replace('_', ' ') || 'USER'}</p>
             </div>
             <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-sm font-semibold">
               {user.first_name?.[0]?.toUpperCase() ?? 'U'}

@@ -261,9 +261,14 @@ export interface LocalUser {
   email: string;
   first_name: string;
   last_name: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
   organizationId: string;
   organization_id?: string;
+  organization?: {
+    id?: string;
+  };
 }
 
 export function getLocalUser(): LocalUser | null {
@@ -273,9 +278,16 @@ export function getLocalUser(): LocalUser | null {
     if (!raw) return null;
 
     const user = JSON.parse(raw) as LocalUser;
+    const firstName = user.first_name || user.firstName || '';
+    const lastName = user.last_name || user.lastName || '';
+
     return {
       ...user,
-      organizationId: user.organizationId || user.organization_id || '',
+      first_name: firstName,
+      last_name: lastName,
+      firstName,
+      lastName,
+      organizationId: user.organizationId || user.organization_id || user.organization?.id || '',
     };
   } catch {
     return null;
