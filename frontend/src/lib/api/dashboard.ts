@@ -269,6 +269,9 @@ export interface LocalUser {
   organization?: {
     id?: string;
   };
+  organizations?: {
+    id?: string;
+  };
 }
 
 export function getLocalUser(): LocalUser | null {
@@ -280,6 +283,8 @@ export function getLocalUser(): LocalUser | null {
     const user = JSON.parse(raw) as LocalUser;
     const firstName = user.first_name || user.firstName || '';
     const lastName = user.last_name || user.lastName || '';
+    const token = localStorage.getItem('token');
+    const tokenPayload = token ? decodeJwtPayload(token) : null;
 
     return {
       ...user,
@@ -287,8 +292,31 @@ export function getLocalUser(): LocalUser | null {
       last_name: lastName,
       firstName,
       lastName,
-      organizationId: user.organizationId || user.organization_id || user.organization?.id || '',
+      organizationId:
+        user.organizationId ||
+        user.organization_id ||
+        user.organization?.id ||
+        user.organizations?.id ||
+        tokenPayload?.organizationId ||
+        '',
     };
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(token: string): { organizationId?: string } | null {
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + (4 - (normalizedPayload.length % 4)) % 4,
+      '='
+    );
+
+    return JSON.parse(atob(paddedPayload));
   } catch {
     return null;
   }
